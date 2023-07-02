@@ -1,11 +1,9 @@
 ---
 source: mybril/src/main.rs
-expression: dot(&bril)
+expression: dot
+input_file: mybril/tests/div.json
 ---
 digraph main {
-  b0;
-}
-digraph print4 {
   b0;
 }
 

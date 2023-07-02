@@ -1,6 +1,7 @@
 ---
 source: mybril/src/main.rs
-expression: dot(&bril)
+expression: dot
+input_file: mybril/tests/main-bool-args.json
 ---
 digraph main {
   b0;

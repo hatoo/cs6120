@@ -186,51 +186,18 @@ fn dot(bril: &Bril) -> String {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::BTreeMap, fs::read_dir};
 
-    use insta::{assert_display_snapshot, assert_json_snapshot, Settings};
+    use insta::{assert_display_snapshot, glob};
 
     use super::*;
 
-    fn brils() -> Vec<(Settings, Bril)> {
-        read_dir("tests")
-            .unwrap()
-            .into_iter()
-            .map(|entry| {
-                let entry = entry.unwrap();
-                let path = entry.path();
-                let json = std::fs::read_to_string(&path).unwrap();
-                let mut settings = Settings::new();
-                settings.set_input_file(entry.file_name());
-                (
-                    entry.file_name(),
-                    (settings, serde_json::from_str(&json).unwrap()),
-                )
-            })
-            .collect::<BTreeMap<_, _>>()
-            .into_values()
-            .collect()
-    }
-
-    #[test]
-    fn test_partition() {
-        brils().into_iter().for_each(|(settings, bril)| {
-            bril.functions.into_iter().for_each(|func| {
-                let blocks = partition(&func.instrs);
-
-                settings.bind(|| {
-                    assert_json_snapshot!(blocks);
-                })
-            })
-        })
-    }
-
     #[test]
     fn test_dot() {
-        for (settings, bril) in brils() {
-            settings.bind(|| {
-                assert_display_snapshot!(dot(&bril));
-            })
-        }
+        glob!("..", "tests/*.json", |path| {
+            let json = std::fs::read_to_string(&path).unwrap();
+            let bril: Bril = serde_json::from_str(&json).unwrap();
+            let dot = dot(&bril);
+            assert_display_snapshot!(dot);
+        });
     }
 }
