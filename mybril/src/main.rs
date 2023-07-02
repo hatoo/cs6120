@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{stdin, Read},
 };
 
@@ -7,31 +7,32 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Deserialize, Debug)]
-struct Bril<'a> {
-    #[serde(borrow)]
-    functions: Vec<Function<'a>>,
+struct Bril {
+    functions: Vec<Function>,
 }
 
 #[derive(Deserialize, Debug)]
-struct Function<'a> {
-    instrs: Vec<Instruction<'a>>,
-    name: &'a str,
+struct Function {
+    instrs: Vec<Instruction>,
+    name: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-struct Instruction<'a> {
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+struct Instruction {
     #[serde(skip_serializing_if = "Option::is_none")]
-    label: Option<&'a str>,
+    label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    op: Option<&'a str>,
+    labels: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<&'a str>,
+    op: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    dest: Option<&'a str>,
+    r#type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dest: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     value: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    args: Option<Vec<&'a str>>,
+    args: Option<Vec<String>>,
 }
 
 fn main() {
@@ -42,7 +43,7 @@ fn main() {
     for func in bril.functions {
         let mut adds = 0;
         for instr in func.instrs {
-            if instr.op == Some("add") {
+            if instr.op.as_deref() == Some("add") {
                 adds += 1;
             }
         }
@@ -50,25 +51,48 @@ fn main() {
     }
 }
 
-struct Cfg<'a> {
-    entry_label: String,
-    blocks: HashMap<String, Vec<Instruction<'a>>>,
-    predecessors: HashMap<String, Vec<String>>,
-    successors: HashMap<String, Vec<String>>,
+struct Labeler {
+    banned: HashSet<String>,
+    counters: HashMap<String, usize>,
 }
 
-fn partition<'a>(instrs: &[Instruction<'a>]) -> Vec<Vec<Instruction<'a>>> {
+impl Labeler {
+    fn new(partitioned: &[Vec<Instruction>]) -> Self {
+        let banned: HashSet<String> = partitioned
+            .iter()
+            .filter_map(|block| block[0].label.clone())
+            .collect();
+
+        Self {
+            banned,
+            counters: HashMap::new(),
+        }
+    }
+
+    fn label(&mut self, prefix: &str) -> String {
+        let counter = self.counters.entry(prefix.to_string()).or_insert(0);
+        loop {
+            let label = format!("{}{}", prefix, counter);
+            *counter += 1;
+            if !self.banned.contains(&label) {
+                return label;
+            }
+        }
+    }
+}
+
+fn partition(instrs: &[Instruction]) -> Vec<Vec<Instruction>> {
     let mut blocks = Vec::new();
     let mut block = Vec::new();
     for instr in instrs {
-        if let Some(label) = instr.label {
+        if instr.label.is_some() {
             if !block.is_empty() {
                 blocks.push(block);
             }
             block = Vec::new();
             block.push(instr.clone());
         } else {
-            match instr.op {
+            match instr.op.as_deref() {
                 Some("br") | Some("jmp") => {
                     block.push(instr.clone());
                     blocks.push(block);
@@ -86,15 +110,89 @@ fn partition<'a>(instrs: &[Instruction<'a>]) -> Vec<Vec<Instruction<'a>>> {
     blocks
 }
 
+fn add_label(partitioned: &mut [Vec<Instruction>]) {
+    let mut labeler = Labeler::new(&partitioned);
+
+    for block in partitioned {
+        if block[0].label.is_none() {
+            block.insert(
+                0,
+                Instruction {
+                    label: Some(labeler.label("b")),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+}
+
+fn add_terminatior(labeled: &mut [Vec<Instruction>]) {
+    for i in 0..labeled.len() {
+        let next = labeled
+            .get(i + 1)
+            .map(|block| block[0].label.as_deref().unwrap());
+
+        match labeled[i].last().unwrap().op.as_deref() {
+            Some("br") | Some("jmp") | Some("ret") => {}
+            _ => {
+                if let Some(next) = next {
+                    labeled[i].push(Instruction {
+                        op: Some("jmp".to_string()),
+                        labels: Some(vec![next.to_string()]),
+                        ..Default::default()
+                    })
+                } else {
+                    labeled[i].push(Instruction {
+                        op: Some("ret".to_string()),
+                        ..Default::default()
+                    })
+                }
+            }
+        }
+    }
+}
+
+fn dot(bril: &Bril) -> String {
+    use std::fmt::Write;
+
+    let mut dot = String::new();
+
+    for function in &bril.functions {
+        writeln!(dot, "digraph {} {{", function.name).unwrap();
+
+        let mut partitioned = partition(&function.instrs);
+        add_label(&mut partitioned);
+        add_terminatior(&mut partitioned);
+
+        for block in &partitioned {
+            let label = block[0].label.as_deref().unwrap();
+            writeln!(dot, "  {label};").unwrap();
+        }
+
+        for block in &partitioned {
+            let from = block[0].label.as_deref().unwrap();
+            if let Some(labels) = block.last().unwrap().labels.as_ref() {
+                for to in labels {
+                    writeln!(dot, "  {} -> {};", from, to).unwrap();
+                }
+            }
+        }
+
+        writeln!(dot, "}}").unwrap();
+    }
+
+    dot
+}
+
 #[cfg(test)]
 mod test {
     use std::fs::read_dir;
 
-    use insta::assert_json_snapshot;
+    use insta::{assert_display_snapshot, assert_json_snapshot};
 
     use super::*;
 
-    fn brils() -> Vec<Bril<'static>> {
+    fn brils() -> Vec<Bril> {
         read_dir("tests")
             .unwrap()
             .into_iter()
@@ -102,23 +200,25 @@ mod test {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 let json = std::fs::read_to_string(path).unwrap();
-                serde_json::from_str(Box::leak(Box::new(json))).unwrap()
+                serde_json::from_str(&json).unwrap()
             })
             .collect()
     }
 
     #[test]
-    fn test_parse() {
-        brils();
-    }
-
-    #[test]
-    fn test_basic_blocks() {
+    fn test_partition() {
         brils().into_iter().for_each(|bril| {
             bril.functions.into_iter().for_each(|func| {
                 let blocks = partition(&func.instrs);
                 assert_json_snapshot!(blocks);
             })
         })
+    }
+
+    #[test]
+    fn test_dot() {
+        for bril in brils() {
+            assert_display_snapshot!(dot(&bril));
+        }
     }
 }

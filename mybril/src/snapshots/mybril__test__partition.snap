@@ -1,6 +1,5 @@
 ---
 source: mybril/src/main.rs
-assertion_line: 120
 expression: blocks
 ---
 [
@@ -18,6 +17,10 @@ expression: blocks
       "value": false
     },
     {
+      "labels": [
+        "there",
+        "here"
+      ],
       "op": "br",
       "args": [
         "b"

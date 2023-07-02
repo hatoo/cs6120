@@ -1,6 +1,5 @@
 ---
 source: mybril/src/main.rs
-assertion_line: 120
 expression: blocks
 ---
 [
