@@ -1,6 +1,7 @@
 ---
 source: mybril/src/main.rs
-expression: basic_blocks
+assertion_line: 120
+expression: blocks
 ---
 [
   [

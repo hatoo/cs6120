@@ -20,7 +20,10 @@ struct Function<'a> {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct Instruction<'a> {
-    op: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    op: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     r#type: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,7 +42,7 @@ fn main() {
     for func in bril.functions {
         let mut adds = 0;
         for instr in func.instrs {
-            if instr.op == "add" {
+            if instr.op == Some("add") {
                 adds += 1;
             }
         }
@@ -54,25 +57,26 @@ struct Cfg<'a> {
     successors: HashMap<String, Vec<String>>,
 }
 
-fn basic_blocks<'a>(instrs: &[Instruction<'a>]) -> Vec<Vec<Instruction<'a>>> {
+fn partition<'a>(instrs: &[Instruction<'a>]) -> Vec<Vec<Instruction<'a>>> {
     let mut blocks = Vec::new();
     let mut block = Vec::new();
     for instr in instrs {
-        match instr.op {
-            "br" | "jmp" => {
-                block.push(instr.clone());
+        if let Some(label) = instr.label {
+            if !block.is_empty() {
                 blocks.push(block);
-                block = Vec::new();
             }
-            "label" => {
-                if !block.is_empty() {
+            block = Vec::new();
+            block.push(instr.clone());
+        } else {
+            match instr.op {
+                Some("br") | Some("jmp") => {
+                    block.push(instr.clone());
                     blocks.push(block);
+                    block = Vec::new();
                 }
-                block = Vec::new();
-                block.push(instr.clone());
-            }
-            _ => {
-                block.push(instr.clone());
+                _ => {
+                    block.push(instr.clone());
+                }
             }
         }
     }
@@ -82,17 +86,39 @@ fn basic_blocks<'a>(instrs: &[Instruction<'a>]) -> Vec<Vec<Instruction<'a>>> {
     blocks
 }
 
-#[test]
-fn test_parse() {
-    const JSON: &str = include_str!("../assets/add.json");
-    let _bril: Bril = serde_json::from_str(JSON).unwrap();
-}
+#[cfg(test)]
+mod test {
+    use std::fs::read_dir;
 
-#[test]
-fn test_basic_blocks() {
-    const JSON: &str = include_str!("../assets/add.json");
-    let bril: Bril = serde_json::from_str(JSON).unwrap();
+    use insta::assert_json_snapshot;
 
-    let basic_blocks = basic_blocks(&bril.functions[0].instrs);
-    insta::assert_json_snapshot!(basic_blocks);
+    use super::*;
+
+    fn brils() -> Vec<Bril<'static>> {
+        read_dir("tests")
+            .unwrap()
+            .into_iter()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                let json = std::fs::read_to_string(path).unwrap();
+                serde_json::from_str(Box::leak(Box::new(json))).unwrap()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_parse() {
+        brils();
+    }
+
+    #[test]
+    fn test_basic_blocks() {
+        brils().into_iter().for_each(|bril| {
+            bril.functions.into_iter().for_each(|func| {
+                let blocks = partition(&func.instrs);
+                assert_json_snapshot!(blocks);
+            })
+        })
+    }
 }
