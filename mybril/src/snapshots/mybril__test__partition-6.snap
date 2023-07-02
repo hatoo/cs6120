@@ -1,0 +1,35 @@
+---
+source: mybril/src/main.rs
+expression: blocks
+---
+[
+  [
+    {
+      "op": "add",
+      "type": "int",
+      "dest": "w",
+      "args": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "op": "const",
+      "type": "int",
+      "dest": "y",
+      "value": 5
+    },
+    {
+      "op": "print",
+      "args": [
+        "w"
+      ]
+    },
+    {
+      "op": "ret",
+      "args": [
+        "w"
+      ]
+    }
+  ]
+]

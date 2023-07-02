@@ -1,0 +1,11 @@
+---
+source: mybril/src/main.rs
+expression: dot(&bril)
+---
+digraph main {
+  b0;
+}
+digraph add2 {
+  b0;
+}
+

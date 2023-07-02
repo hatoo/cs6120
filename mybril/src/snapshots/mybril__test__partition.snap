@@ -7,45 +7,77 @@ expression: blocks
     {
       "op": "const",
       "type": "int",
-      "dest": "v",
-      "value": 4
+      "dest": "out",
+      "value": 1
     },
     {
       "op": "const",
+      "type": "int",
+      "dest": "one",
+      "value": 1
+    }
+  ],
+  [
+    {
+      "label": "loop"
+    },
+    {
+      "op": "lt",
       "type": "bool",
-      "dest": "b",
-      "value": false
+      "dest": "end",
+      "args": [
+        "exp",
+        "one"
+      ]
     },
     {
       "labels": [
-        "there",
-        "here"
+        "ret",
+        "body"
       ],
       "op": "br",
       "args": [
-        "b"
+        "end"
       ]
     }
   ],
   [
     {
-      "label": "here"
+      "label": "body"
     },
     {
-      "op": "const",
+      "op": "mul",
       "type": "int",
-      "dest": "v",
-      "value": 2
+      "dest": "out",
+      "args": [
+        "out",
+        "base"
+      ]
+    },
+    {
+      "op": "sub",
+      "type": "int",
+      "dest": "exp",
+      "args": [
+        "exp",
+        "one"
+      ]
+    },
+    {
+      "labels": [
+        "loop"
+      ],
+      "op": "jmp"
     }
   ],
   [
     {
-      "label": "there"
+      "label": "ret"
     },
     {
-      "op": "print",
+      "op": "ret",
       "args": [
-        "v"
+        "out"
       ]
     }
   ]

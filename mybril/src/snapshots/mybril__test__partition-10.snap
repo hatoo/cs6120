@@ -1,0 +1,39 @@
+---
+source: mybril/src/main.rs
+expression: blocks
+---
+[
+  [
+    {
+      "op": "const",
+      "type": "int",
+      "dest": "v",
+      "value": 4
+    },
+    {
+      "labels": [
+        "somewhere"
+      ],
+      "op": "jmp"
+    }
+  ],
+  [
+    {
+      "op": "const",
+      "type": "int",
+      "dest": "v",
+      "value": 2
+    }
+  ],
+  [
+    {
+      "label": "somewhere"
+    },
+    {
+      "op": "print",
+      "args": [
+        "v"
+      ]
+    }
+  ]
+]

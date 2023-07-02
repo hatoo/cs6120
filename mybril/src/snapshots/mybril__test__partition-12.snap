@@ -5,18 +5,10 @@ expression: blocks
 [
   [
     {
-      "op": "const",
-      "type": "int",
-      "dest": "v",
-      "value": 4
-    },
-    {
-      "op": "const",
-      "type": "bool",
-      "dest": "b",
-      "value": false
-    },
-    {
+      "labels": [
+        "here",
+        "there"
+      ],
       "op": "br",
       "args": [
         "b"
@@ -31,7 +23,16 @@ expression: blocks
       "op": "const",
       "type": "int",
       "dest": "v",
-      "value": 2
+      "value": 1
+    },
+    {
+      "op": "print",
+      "args": [
+        "v"
+      ]
+    },
+    {
+      "op": "ret"
     }
   ],
   [
@@ -39,10 +40,19 @@ expression: blocks
       "label": "there"
     },
     {
+      "op": "const",
+      "type": "int",
+      "dest": "v",
+      "value": 2
+    },
+    {
       "op": "print",
       "args": [
         "v"
       ]
+    },
+    {
+      "op": "ret"
     }
   ]
 ]
