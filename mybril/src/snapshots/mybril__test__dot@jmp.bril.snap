@@ -1,0 +1,13 @@
+---
+source: mybril/src/main.rs
+expression: dot
+input_file: mybril/tests/test/interp/core/jmp.bril
+---
+digraph main {
+  b0;
+  b1;
+  somewhere;
+  b0 -> somewhere;
+  b1 -> somewhere;
+}
+

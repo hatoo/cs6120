@@ -188,13 +188,57 @@ fn dot(bril: &Bril) -> String {
 mod test {
 
     use insta::{assert_display_snapshot, glob};
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
 
     use super::*;
 
+    fn bril2json(src: &str) -> String {
+        let mut child = Command::new("bril2json")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(src.as_bytes()).unwrap();
+        drop(stdin);
+
+        String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap()
+    }
+
+    fn brili(src: &str) -> (String, usize) {
+        let mut child = Command::new("brili")
+            .arg("-p")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(src.as_bytes()).unwrap();
+        drop(stdin);
+
+        let result = child.wait_with_output().unwrap();
+        let stdout = String::from_utf8(result.stdout).unwrap();
+        let stderr = String::from_utf8(result.stderr).unwrap();
+
+        (
+            stdout,
+            stderr
+                .trim_start_matches("total_dyn_inst: ")
+                .trim()
+                .parse()
+                .unwrap(),
+        )
+    }
+
     #[test]
     fn test_dot() {
-        glob!("..", "tests/*.json", |path| {
-            let json = std::fs::read_to_string(&path).unwrap();
+        glob!("..", "tests/test/interp/core/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
             let bril: Bril = serde_json::from_str(&json).unwrap();
             let dot = dot(&bril);
             assert_display_snapshot!(dot);

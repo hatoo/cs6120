@@ -1,0 +1,12 @@
+---
+source: mybril/src/main.rs
+expression: dot
+input_file: mybril/tests/test/interp/core/call.bril
+---
+digraph main {
+  b0;
+}
+digraph print4 {
+  b0;
+}
+

@@ -1,0 +1,19 @@
+---
+source: mybril/src/main.rs
+expression: dot
+input_file: mybril/tests/test/interp/core/add-overflow.bril
+---
+digraph pow {
+  b0;
+  loop;
+  body;
+  ret;
+  b0 -> loop;
+  loop -> ret;
+  loop -> body;
+  body -> loop;
+}
+digraph main {
+  b0;
+}
+
