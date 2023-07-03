@@ -6,12 +6,12 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct Bril {
     functions: Vec<Function>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct Function {
     instrs: Vec<Instruction>,
     name: String,
@@ -49,6 +49,26 @@ fn main() {
         }
         println!("Function {} has {} adds", func.name, adds);
     }
+}
+
+fn trivial_dce(function: &mut Function) {
+    let mut used = HashSet::new();
+
+    for inst in &function.instrs {
+        if let Some(args) = inst.args.as_ref() {
+            for arg in args {
+                used.insert(arg.clone());
+            }
+        }
+    }
+
+    function.instrs.retain(|inst| {
+        if let Some(dest) = inst.dest.as_ref() {
+            used.contains(dest.as_str())
+        } else {
+            true
+        }
+    });
 }
 
 struct Labeler {
@@ -189,6 +209,7 @@ mod test {
 
     use insta::{assert_display_snapshot, glob};
     use std::{
+        fmt::format,
         io::Write,
         process::{Command, Stdio},
     };
@@ -197,6 +218,19 @@ mod test {
 
     fn bril2json(src: &str) -> String {
         let mut child = Command::new("bril2json")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(src.as_bytes()).unwrap();
+        drop(stdin);
+
+        String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap()
+    }
+
+    fn bril2txt(src: &str) -> String {
+        let mut child = Command::new("bril2txt")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -242,6 +276,29 @@ mod test {
             let bril: Bril = serde_json::from_str(&json).unwrap();
             let dot = dot(&bril);
             assert_display_snapshot!(dot);
+        });
+    }
+
+    #[test]
+    fn test_trivial_dce() {
+        glob!("..", "tests/examples/tdce/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let mut bril: Bril = serde_json::from_str(&json).unwrap();
+
+            for function in &mut bril.functions {
+                trivial_dce(function);
+            }
+
+            let json_after = serde_json::to_string_pretty(&bril).unwrap();
+
+            let orig = brili(&json);
+            let after = brili(&json_after);
+
+            assert_eq!(orig.0, after.0);
+            assert!(orig.1 >= after.1);
+
+            assert_display_snapshot!(format!("{}\n\n{}", txt, bril2txt(json_after.as_str())));
         });
     }
 }

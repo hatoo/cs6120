@@ -1,0 +1,19 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{}\", txt, bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/tdce/reassign-dkp.bril
+---
+# ARGS: dkp
+@main {
+  a: int = const 100;
+  a: int = const 42;
+  print a;
+}
+
+
+@main {
+  a: int = const 100;
+  a: int = const 42;
+  print a;
+}
+
