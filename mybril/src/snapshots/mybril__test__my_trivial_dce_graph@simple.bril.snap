@@ -1,0 +1,23 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/tdce/simple.bril
+---
+@main {
+  a: int = const 4;
+  b: int = const 2;
+  c: int = const 1;
+  d: int = add a b;
+  print d;
+}
+
+
+5 -> 4
+
+@main {
+  a: int = const 4;
+  b: int = const 2;
+  d: int = add a b;
+  print d;
+}
+

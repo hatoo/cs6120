@@ -71,6 +71,44 @@ fn trivial_dce(function: &mut Function) {
     });
 }
 
+fn my_trivial_dce_graph(function: &mut Function) {
+    let mut used_by_effects = HashSet::new();
+    let mut uses: HashMap<String, HashSet<String>> = HashMap::new();
+
+    for inst in &function.instrs {
+        if let Some(args) = inst.args.as_ref() {
+            if let Some(dest) = inst.dest.as_ref() {
+                uses.entry(dest.clone())
+                    .or_default()
+                    .extend(args.iter().cloned());
+            }
+        }
+        if matches!(inst.op.as_deref(), Some("print") | Some("br")) {
+            used_by_effects.extend(inst.args.as_ref().unwrap().iter().cloned());
+        }
+    }
+
+    let mut used = HashSet::new();
+
+    let mut stack = used_by_effects.into_iter().collect::<Vec<_>>();
+    while let Some(dest) = stack.pop() {
+        if !used.contains(&dest) {
+            if let Some(args) = uses.get(&dest) {
+                stack.extend(args.iter().cloned());
+            }
+            used.insert(dest);
+        }
+    }
+
+    function.instrs.retain(|inst| {
+        if let Some(dest) = inst.dest.as_ref() {
+            used.contains(dest.as_str())
+        } else {
+            true
+        }
+    });
+}
+
 struct Labeler {
     banned: HashSet<String>,
     counters: HashMap<String, usize>,
@@ -209,7 +247,6 @@ mod test {
 
     use insta::{assert_display_snapshot, glob};
     use std::{
-        fmt::format,
         io::Write,
         process::{Command, Stdio},
     };
@@ -288,6 +325,35 @@ mod test {
 
             for function in &mut bril.functions {
                 trivial_dce(function);
+            }
+
+            let json_after = serde_json::to_string_pretty(&bril).unwrap();
+
+            let orig = brili(&json);
+            let after = brili(&json_after);
+
+            assert_eq!(orig.0, after.0);
+            assert!(orig.1 >= after.1);
+
+            assert_display_snapshot!(format!(
+                "{}\n\n{} -> {}\n\n{}",
+                txt,
+                orig.1,
+                after.1,
+                bril2txt(json_after.as_str())
+            ));
+        });
+    }
+
+    #[test]
+    fn test_my_trivial_dce_graph() {
+        glob!("..", "tests/examples/tdce/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let mut bril: Bril = serde_json::from_str(&json).unwrap();
+
+            for function in &mut bril.functions {
+                my_trivial_dce_graph(function);
             }
 
             let json_after = serde_json::to_string_pretty(&bril).unwrap();

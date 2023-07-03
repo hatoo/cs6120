@@ -1,0 +1,36 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/tdce/diamond.bril
+---
+@main {
+  a: int = const 47;
+  cond: bool = const true;
+  br cond .left .right;
+.left:
+  a: int = const 1;
+  jmp .end;
+.right:
+  a: int = const 2;
+  jmp .end;
+.end:
+  print a;
+}
+
+
+6 -> 6
+
+@main {
+  a: int = const 47;
+  cond: bool = const true;
+  br cond .left .right;
+.left:
+  a: int = const 1;
+  jmp .end;
+.right:
+  a: int = const 2;
+  jmp .end;
+.end:
+  print a;
+}
+
