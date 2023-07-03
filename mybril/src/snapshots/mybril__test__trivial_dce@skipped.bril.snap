@@ -1,6 +1,6 @@
 ---
 source: mybril/src/main.rs
-expression: "format!(\"{}\\n\\n{}\", txt, bril2txt(json_after.as_str()))"
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
 input_file: mybril/tests/examples/tdce/skipped.bril
 ---
 @main {
@@ -12,6 +12,8 @@ input_file: mybril/tests/examples/tdce/skipped.bril
   print a;
 }
 
+
+4 -> 4
 
 @main {
   a: int = const 4;

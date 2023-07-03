@@ -298,7 +298,13 @@ mod test {
             assert_eq!(orig.0, after.0);
             assert!(orig.1 >= after.1);
 
-            assert_display_snapshot!(format!("{}\n\n{}", txt, bril2txt(json_after.as_str())));
+            assert_display_snapshot!(format!(
+                "{}\n\n{} -> {}\n\n{}",
+                txt,
+                orig.1,
+                after.1,
+                bril2txt(json_after.as_str())
+            ));
         });
     }
 }
