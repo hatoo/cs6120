@@ -109,6 +109,19 @@ fn my_trivial_dce_graph(function: &mut Function) {
     });
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+struct InstValue {
+    op: String,
+    args: Vec<usize>,
+}
+
+struct ValueTable {
+    var2num: HashMap<String, usize>,
+    value_table: HashMap<InstValue, (usize, String)>,
+}
+
+fn local_value_numbering(instrs: &mut Vec<Instruction>) {}
+
 struct Labeler {
     banned: HashSet<String>,
     counters: HashMap<String, usize>,
