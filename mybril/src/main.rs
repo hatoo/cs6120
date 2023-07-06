@@ -167,6 +167,11 @@ impl ValueTable {
             return Some(self.num2var[&arg].clone());
         }
 
+        // Redifine occured. Remove old edge.
+        if let Some(&num) = self.var2num.get(&dest) {
+            self.var2num.retain(|_, v| *v != num);
+        }
+
         if let Some(var) = self.table.get(inst_value) {
             self.var2num.insert(dest.to_string(), self.var2num[var]);
             Some(var.clone())
