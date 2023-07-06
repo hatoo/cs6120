@@ -38,17 +38,25 @@ struct Instruction {
 fn main() {
     let mut buffer = String::new();
     stdin().read_to_string(&mut buffer).unwrap();
-    let bril: Bril = serde_json::from_str(&buffer).unwrap();
+    let mut bril: Bril = serde_json::from_str(&buffer).unwrap();
 
-    for func in bril.functions {
-        let mut adds = 0;
-        for instr in func.instrs {
-            if instr.op.as_deref() == Some("add") {
-                adds += 1;
-            }
-        }
-        println!("Function {} has {} adds", func.name, adds);
+    for function in &mut bril.functions {
+        let mut partitioned = partition(&function.instrs);
+        partitioned.iter_mut().for_each(|p| {
+            drop_kill(p);
+            local_value_numbering(p);
+        });
+        function.instrs = partitioned.into_iter().flatten().collect();
+        my_trivial_dce_graph(function);
+        let mut partitioned = partition(&function.instrs);
+        partitioned.iter_mut().for_each(|p| {
+            drop_kill(p);
+        });
+        function.instrs = partitioned.into_iter().flatten().collect();
     }
+
+    let json_after = serde_json::to_string_pretty(&bril).unwrap();
+    print!("{json_after}");
 }
 
 fn trivial_dce(function: &mut Function) {
@@ -170,14 +178,7 @@ fn drop_kill(instrs: &mut Vec<Instruction>) {
         }
         if let Some(dest) = inst.dest.as_ref() {
             if let Some(old) = unused.insert(dest, i) {
-                if inst
-                    .args
-                    .as_ref()
-                    .map(|args| !args.contains(dest))
-                    .unwrap_or(true)
-                {
-                    kill.insert(old);
-                }
+                kill.insert(old);
             }
         }
     }
