@@ -151,10 +151,15 @@ impl ValueTable {
 
     fn value(
         &mut self,
-        inst_value: &InstValue,
+        mut inst_value: InstValue,
         dest: &str,
         overwritten_after: bool,
     ) -> (Option<String>, Option<String>) {
+        match inst_value.op.as_str() {
+            "add" => inst_value.args.sort_unstable(),
+            _ => {}
+        }
+
         // Redifine occured. Remove old edge.
         if let Some(&num) = self.var2num.get(dest) {
             self.var2num.retain(|_, v| *v != num);
@@ -182,7 +187,7 @@ impl ValueTable {
             return (Some(self.num2var[&arg].clone()), rename);
         }
 
-        if let Some(var) = self.table.get(inst_value) {
+        if let Some(var) = self.table.get(&inst_value) {
             self.var2num.insert(dest.to_string(), self.var2num[var]);
             if overwritten_after {
                 self.var2num.insert(old_name.to_string(), self.var2num[var]);
@@ -229,7 +234,7 @@ fn local_value_numbering(instrs: &mut [Instruction]) {
                     .collect(),
             };
 
-            let (alias, rename) = table.value(&inst_value, dest, dest_map[dest] > i);
+            let (alias, rename) = table.value(inst_value, dest, dest_map[dest] > i);
             if let Some(rename) = rename {
                 inst.dest = Some(rename);
             }
