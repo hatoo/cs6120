@@ -170,7 +170,14 @@ fn drop_kill(instrs: &mut Vec<Instruction>) {
         }
         if let Some(dest) = inst.dest.as_ref() {
             if let Some(old) = unused.insert(dest, i) {
-                kill.insert(old);
+                if inst
+                    .args
+                    .as_ref()
+                    .map(|args| !args.contains(dest))
+                    .unwrap_or(true)
+                {
+                    kill.insert(old);
+                }
             }
         }
     }
@@ -513,6 +520,8 @@ mod test {
             let orig = brili(&json);
             let after = brili(&json_after);
 
+            dbg!(path);
+            dbg!(bril2txt(json_after.as_str()));
             assert_eq!(orig.0, after.0);
             assert!(orig.1 >= after.1);
 
