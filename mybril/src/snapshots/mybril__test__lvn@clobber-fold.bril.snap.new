@@ -1,0 +1,40 @@
+---
+source: mybril/src/main.rs
+assertion_line: 558
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/lvn/clobber-fold.bril
+---
+# CMD: bril2json < {filename} | python3 ../../lvn.py -f | python3 ../../tdce.py tdce | bril2txt
+#
+@main {
+  a: int = const 4;
+  b: int = const 2;
+
+  # (a + b) * (a + b)
+  sum1: int = add a b;
+  sum2: int = add a b;
+  prod1: int = mul sum1 sum2;
+
+  # Clobber both sums.
+  sum1: int = const 0;
+  sum2: int = const 0;
+
+  # Use the sums again.
+  sum3: int = add a b;
+  prod2: int = mul sum3 sum3;
+
+  print prod2;
+}
+
+
+10 -> 6
+
+@main {
+  a: int = const 4;
+  b: int = const 2;
+  sum1: int = add a b;
+  prod1: int = mul sum1 sum1;
+  sum1: int = const 0;
+  print prod1;
+}
+

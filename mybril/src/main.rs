@@ -152,6 +152,7 @@ impl ValueTable {
         dest: &str,
         overwritten_after: bool,
     ) -> Option<String> {
+        /*
         let dest = if overwritten_after {
             let new_dest = format!("{}_prime", dest);
             let num = self.num(&new_dest);
@@ -160,6 +161,7 @@ impl ValueTable {
         } else {
             dest.to_string()
         };
+        */
 
         if inst_value.op == "id" {
             let arg = inst_value.args[0];
@@ -168,7 +170,7 @@ impl ValueTable {
         }
 
         // Redifine occured. Remove old edge.
-        if let Some(&num) = self.var2num.get(&dest) {
+        if let Some(&num) = self.var2num.get(dest) {
             self.var2num.retain(|_, v| *v != num);
         }
 
@@ -180,12 +182,8 @@ impl ValueTable {
             self.counter += 1;
             self.num2var.insert(num, dest.to_string());
             self.var2num.insert(dest.to_string(), num);
-            self.table.insert(inst_value.clone(), dest.clone());
-            if overwritten_after {
-                Some(dest)
-            } else {
-                None
-            }
+            self.table.insert(inst_value.clone(), dest.to_string());
+            None
         }
     }
 }
