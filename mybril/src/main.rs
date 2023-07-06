@@ -146,7 +146,21 @@ impl ValueTable {
         self.num2var[&num].clone()
     }
 
-    fn value(&mut self, inst_value: &InstValue, dest: &str) -> Option<String> {
+    fn value(
+        &mut self,
+        inst_value: &InstValue,
+        dest: &str,
+        overwritten_after: bool,
+    ) -> Option<String> {
+        let dest = if overwritten_after {
+            let new_dest = format!("{}_prime", dest);
+            let num = self.num(&new_dest);
+            self.var2num.insert(dest.to_string(), num);
+            new_dest
+        } else {
+            dest.to_string()
+        };
+
         if inst_value.op == "id" {
             let arg = inst_value.args[0];
             self.var2num.insert(dest.to_string(), arg);
@@ -161,8 +175,57 @@ impl ValueTable {
             self.counter += 1;
             self.num2var.insert(num, dest.to_string());
             self.var2num.insert(dest.to_string(), num);
-            None
+            if overwritten_after {
+                Some(dest)
+            } else {
+                None
+            }
         }
+    }
+}
+
+fn local_value_numbering(instrs: &mut [Instruction]) {
+    let mut table = ValueTable::default();
+
+    let mut dest_map = HashMap::new();
+    for (i, inst) in instrs.iter().enumerate() {
+        if let Some(dest) = inst.dest.as_deref() {
+            dest_map.insert(dest.to_string(), i);
+        }
+    }
+
+    for (i, inst) in instrs.iter_mut().enumerate() {
+        if inst.args.is_none() {
+            continue;
+        }
+
+        if let Some(dest) = inst.dest.as_deref() {
+            let inst_value = InstValue {
+                op: inst.op.as_ref().unwrap().clone(),
+                args: inst
+                    .args
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|arg| table.num(arg))
+                    .collect(),
+            };
+
+            if let Some(alias) = table.value(&inst_value, dest, dest_map[dest] > i) {
+                *inst = Instruction {
+                    dest: Some(dest.to_string()),
+                    op: Some("id".to_string()),
+                    args: Some(vec![alias]),
+                    ..Default::default()
+                };
+                continue;
+            }
+        }
+
+        inst.args = inst
+            .args
+            .as_ref()
+            .map(|args| args.iter().map(|arg| table.root(&arg)).collect::<Vec<_>>());
     }
 }
 
@@ -194,44 +257,6 @@ fn drop_kill(instrs: &mut Vec<Instruction>) {
             }
         })
         .collect();
-}
-
-fn local_value_numbering(instrs: &mut [Instruction]) {
-    let mut table = ValueTable::default();
-
-    for inst in instrs {
-        if inst.args.is_none() {
-            continue;
-        }
-
-        if let Some(dest) = inst.dest.as_deref() {
-            let inst_value = InstValue {
-                op: inst.op.as_ref().unwrap().clone(),
-                args: inst
-                    .args
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .map(|arg| table.num(arg))
-                    .collect(),
-            };
-
-            if let Some(alias) = table.value(&inst_value, dest) {
-                *inst = Instruction {
-                    dest: Some(dest.to_string()),
-                    op: Some("id".to_string()),
-                    args: Some(vec![alias]),
-                    ..Default::default()
-                };
-                continue;
-            }
-        }
-
-        inst.args = inst
-            .args
-            .as_ref()
-            .map(|args| args.iter().map(|arg| table.root(&arg)).collect::<Vec<_>>());
-    }
 }
 
 struct Labeler {
