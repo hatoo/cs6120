@@ -1,0 +1,26 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/lvn/idchain-nonlocal.bril
+---
+# ARGS: -p
+@main {
+  x: int = const 4;
+  jmp .label;
+.label:
+  copy1: int = id x;
+  copy2: int = id copy1;
+  copy3: int = id copy2;
+  print copy3;
+}
+
+
+6 -> 3
+
+@main {
+  x: int = const 4;
+  jmp .label;
+.label:
+  print x;
+}
+

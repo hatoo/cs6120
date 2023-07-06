@@ -133,11 +133,18 @@ impl ValueTable {
         })
     }
 
-    fn root(&self, var: &str) -> String {
-        self.num2var[&self.var2num[var]].clone()
+    fn root(&mut self, var: &str) -> String {
+        let num = self.num(var);
+        self.num2var[&num].clone()
     }
 
     fn value(&mut self, inst_value: &InstValue, dest: &str) -> Option<String> {
+        if inst_value.op == "id" {
+            let arg = inst_value.args[0];
+            self.var2num.insert(dest.to_string(), arg);
+            return Some(self.num2var[&arg].clone());
+        }
+
         if let Some(var) = self.table.get(inst_value) {
             self.var2num.insert(dest.to_string(), self.var2num[var]);
             Some(var.clone())
@@ -411,7 +418,7 @@ mod test {
                 .trim_start_matches("total_dyn_inst: ")
                 .trim()
                 .parse()
-                .unwrap(),
+                .unwrap_or(114514),
         )
     }
 

@@ -1,0 +1,22 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/lvn/idchain-prop.bril
+---
+# ARGS: -p
+@main {
+  x: int = const 4;
+  copy1: int = id x;
+  copy2: int = id copy1;
+  copy3: int = id copy2;
+  print copy3;
+}
+
+
+5 -> 2
+
+@main {
+  x: int = const 4;
+  print x;
+}
+

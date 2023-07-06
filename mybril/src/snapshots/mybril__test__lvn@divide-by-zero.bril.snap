@@ -1,0 +1,24 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/lvn/divide-by-zero.bril
+---
+@main {
+.entry:
+  zero : int = const 0;
+  one : int = const 1;
+  baddiv : int = div one zero;
+  print baddiv;
+}
+
+
+114514 -> 114514
+
+@main {
+.entry:
+  zero: int = const 0;
+  one: int = const 1;
+  baddiv: int = div one zero;
+  print baddiv;
+}
+

@@ -1,0 +1,19 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/lvn/clobber-arg.bril
+---
+@main() {
+  a: int = const 1;
+  b: int = const 2;
+.lbl:
+  b: int = add a b;
+}
+
+
+3 -> 0
+
+@main {
+.lbl:
+}
+

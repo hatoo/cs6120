@@ -1,0 +1,25 @@
+---
+source: mybril/src/main.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/lvn/nonlocal-clobber.bril
+---
+# ARGS: -p
+@main {
+  x: int = const 1;
+.lb:
+  y: int = id x;
+  x: int = add x x;
+  print y;
+}
+
+
+4 -> 4
+
+@main {
+  x: int = const 1;
+.lb:
+  y: int = id x;
+  x: int = add x x;
+  print y;
+}
+
