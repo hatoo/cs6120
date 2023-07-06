@@ -180,6 +180,7 @@ impl ValueTable {
             self.counter += 1;
             self.num2var.insert(num, dest.to_string());
             self.var2num.insert(dest.to_string(), num);
+            self.table.insert(inst_value.clone(), dest.clone());
             if overwritten_after {
                 Some(dest)
             } else {
