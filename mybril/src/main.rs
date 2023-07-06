@@ -115,12 +115,109 @@ struct InstValue {
     args: Vec<usize>,
 }
 
+#[derive(Default)]
 struct ValueTable {
     var2num: HashMap<String, usize>,
-    value_table: HashMap<InstValue, (usize, String)>,
+    table: HashMap<InstValue, String>,
+    num2var: HashMap<usize, String>,
+    counter: usize,
 }
 
-fn local_value_numbering(instrs: &mut Vec<Instruction>) {}
+impl ValueTable {
+    fn num(&mut self, var: &str) -> usize {
+        *self.var2num.entry(var.to_string()).or_insert_with(|| {
+            let num = self.counter;
+            self.counter += 1;
+            self.num2var.insert(num, var.to_string());
+            num
+        })
+    }
+
+    fn root(&self, var: &str) -> String {
+        self.num2var[&self.var2num[var]].clone()
+    }
+
+    fn value(&mut self, inst_value: &InstValue, dest: &str) -> Option<String> {
+        if let Some(var) = self.table.get(inst_value) {
+            self.var2num.insert(dest.to_string(), self.var2num[var]);
+            Some(var.clone())
+        } else {
+            let num = self.counter;
+            self.counter += 1;
+            self.num2var.insert(num, dest.to_string());
+            self.var2num.insert(dest.to_string(), num);
+            None
+        }
+    }
+}
+
+fn drop_kill(instrs: &mut Vec<Instruction>) {
+    let mut unused = HashMap::new();
+    let mut kill = HashSet::new();
+
+    for (i, inst) in instrs.iter().enumerate() {
+        if let Some(args) = inst.args.as_ref() {
+            for arg in args {
+                unused.remove(arg);
+            }
+        }
+        if let Some(dest) = inst.dest.as_ref() {
+            if let Some(old) = unused.insert(dest, i) {
+                kill.insert(old);
+            }
+        }
+    }
+
+    *instrs = instrs
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, inst)| {
+            if kill.contains(&i) {
+                None
+            } else {
+                Some(inst.clone())
+            }
+        })
+        .collect();
+}
+
+fn local_value_numbering(instrs: &mut [Instruction]) {
+    let mut table = ValueTable::default();
+
+    for inst in instrs {
+        if inst.args.is_none() {
+            continue;
+        }
+
+        if let Some(dest) = inst.dest.as_deref() {
+            let inst_value = InstValue {
+                op: inst.op.as_ref().unwrap().clone(),
+                args: inst
+                    .args
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|arg| table.num(arg))
+                    .collect(),
+            };
+
+            if let Some(alias) = table.value(&inst_value, dest) {
+                *inst = Instruction {
+                    dest: Some(dest.to_string()),
+                    op: Some("id".to_string()),
+                    args: Some(vec![alias]),
+                    ..Default::default()
+                };
+                continue;
+            }
+        }
+
+        inst.args = inst
+            .args
+            .as_ref()
+            .map(|args| args.iter().map(|arg| table.root(&arg)).collect::<Vec<_>>());
+    }
+}
 
 struct Labeler {
     banned: HashSet<String>,
@@ -366,6 +463,41 @@ mod test {
             let mut bril: Bril = serde_json::from_str(&json).unwrap();
 
             for function in &mut bril.functions {
+                my_trivial_dce_graph(function);
+            }
+
+            let json_after = serde_json::to_string_pretty(&bril).unwrap();
+
+            let orig = brili(&json);
+            let after = brili(&json_after);
+
+            assert_eq!(orig.0, after.0);
+            assert!(orig.1 >= after.1);
+
+            assert_display_snapshot!(format!(
+                "{}\n\n{} -> {}\n\n{}",
+                txt,
+                orig.1,
+                after.1,
+                bril2txt(json_after.as_str())
+            ));
+        });
+    }
+
+    #[test]
+    fn test_lvn() {
+        glob!("..", "tests/examples/lvn/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let mut bril: Bril = serde_json::from_str(&json).unwrap();
+
+            for function in &mut bril.functions {
+                let mut partition = partition(&function.instrs);
+                partition.iter_mut().for_each(|p| {
+                    local_value_numbering(p);
+                    drop_kill(p)
+                });
+                function.instrs = partition.into_iter().flatten().collect();
                 my_trivial_dce_graph(function);
             }
 
