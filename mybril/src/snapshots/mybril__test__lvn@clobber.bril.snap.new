@@ -1,6 +1,6 @@
 ---
 source: mybril/src/main.rs
-assertion_line: 558
+assertion_line: 578
 expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
 input_file: mybril/tests/examples/lvn/clobber.bril
 ---
@@ -27,14 +27,13 @@ input_file: mybril/tests/examples/lvn/clobber.bril
 }
 
 
-10 -> 6
+10 -> 5
 
 @main {
   a: int = const 4;
   b: int = const 2;
-  sum1: int = add a b;
-  prod1: int = mul sum1 sum1;
-  sum1: int = const 0;
+  sum1_prime: int = add a b;
+  prod1: int = mul sum1_prime sum1_prime;
   print prod1;
 }
 

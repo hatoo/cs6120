@@ -43,16 +43,18 @@ fn main() {
     for function in &mut bril.functions {
         let mut partitioned = partition(&function.instrs);
         partitioned.iter_mut().for_each(|p| {
-            drop_kill(p);
+            // drop_kill(p);
             local_value_numbering(p);
         });
         function.instrs = partitioned.into_iter().flatten().collect();
+        /*
         my_trivial_dce_graph(function);
         let mut partitioned = partition(&function.instrs);
         partitioned.iter_mut().for_each(|p| {
             drop_kill(p);
         });
         function.instrs = partitioned.into_iter().flatten().collect();
+        */
     }
 
     let json_after = serde_json::to_string_pretty(&bril).unwrap();
@@ -143,7 +145,8 @@ impl ValueTable {
 
     fn root(&mut self, var: &str) -> String {
         let num = self.num(var);
-        self.num2var[&num].clone()
+        dbg!(var, &self.var2num, &self.num2var);
+        dbg!(self.num2var[&num].clone())
     }
 
     fn value(
@@ -151,8 +154,13 @@ impl ValueTable {
         inst_value: &InstValue,
         dest: &str,
         overwritten_after: bool,
-    ) -> Option<String> {
-        /*
+    ) -> (Option<String>, Option<String>) {
+        // Redifine occured. Remove old edge.
+        if let Some(&num) = self.var2num.get(dest) {
+            self.var2num.retain(|_, v| *v != num);
+        }
+
+        let old_name = dest;
         let dest = if overwritten_after {
             let new_dest = format!("{}_prime", dest);
             let num = self.num(&new_dest);
@@ -161,29 +169,35 @@ impl ValueTable {
         } else {
             dest.to_string()
         };
-        */
+
+        let rename = if overwritten_after {
+            Some(dest.clone())
+        } else {
+            None
+        };
 
         if inst_value.op == "id" {
             let arg = inst_value.args[0];
             self.var2num.insert(dest.to_string(), arg);
-            return Some(self.num2var[&arg].clone());
-        }
-
-        // Redifine occured. Remove old edge.
-        if let Some(&num) = self.var2num.get(dest) {
-            self.var2num.retain(|_, v| *v != num);
+            return (Some(self.num2var[&arg].clone()), rename);
         }
 
         if let Some(var) = self.table.get(inst_value) {
             self.var2num.insert(dest.to_string(), self.var2num[var]);
-            Some(var.clone())
+            if overwritten_after {
+                self.var2num.insert(old_name.to_string(), self.var2num[var]);
+            }
+            (Some(var.clone()), rename)
         } else {
-            let num = self.counter;
-            self.counter += 1;
-            self.num2var.insert(num, dest.to_string());
-            self.var2num.insert(dest.to_string(), num);
+            if !overwritten_after {
+                let num = self.counter;
+                self.counter += 1;
+                self.num2var.insert(num, dest.to_string());
+                self.var2num.insert(dest.to_string(), num);
+            }
             self.table.insert(inst_value.clone(), dest.to_string());
-            None
+
+            (None, rename)
         }
     }
 }
@@ -215,9 +229,14 @@ fn local_value_numbering(instrs: &mut [Instruction]) {
                     .collect(),
             };
 
-            if let Some(alias) = table.value(&inst_value, dest, dest_map[dest] > i) {
+            let (alias, rename) = table.value(&inst_value, dest, dest_map[dest] > i);
+            if let Some(rename) = rename {
+                inst.dest = Some(rename);
+            }
+
+            if let Some(alias) = alias {
                 *inst = Instruction {
-                    dest: Some(dest.to_string()),
+                    dest: inst.dest.clone(),
                     op: Some("id".to_string()),
                     args: Some(vec![alias]),
                     ..Default::default()

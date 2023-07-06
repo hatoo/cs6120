@@ -1,6 +1,6 @@
 ---
 source: mybril/src/main.rs
-assertion_line: 558
+assertion_line: 578
 expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
 input_file: mybril/tests/examples/lvn/rename-fold.bril
 ---
