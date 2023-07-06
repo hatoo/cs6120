@@ -18,7 +18,7 @@ input_file: mybril/tests/examples/lvn/nonlocal-clobber.bril
 @main {
   x: int = const 1;
 .lb:
-  y: int = id x;
+  y = id x;
   x: int = add x x;
   print y;
 }

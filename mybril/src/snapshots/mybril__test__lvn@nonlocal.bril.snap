@@ -21,7 +21,7 @@ input_file: mybril/tests/examples/lvn/nonlocal.bril
   a: int = const 4;
   b: int = const 2;
   sum1: int = add a b;
-  sum2: int = add a b;
+  sum2 = id sum1;
   jmp .label;
 .label:
   prod: int = mul sum1 sum2;
