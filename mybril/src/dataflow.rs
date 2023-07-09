@@ -17,18 +17,12 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
 
     let label_map = blocks
         .iter()
-        .map(|block| (block[0].label.as_deref().unwrap(), block))
+        .map(|block| (block[0].label.as_deref().unwrap(), block.as_slice()))
         .collect::<HashMap<_, _>>();
 
     let (predecessors, successors) = {
-        let mut predecessors = labels
-            .iter()
-            .map(|&label| (label, Default::default()))
-            .collect::<HashMap<_, _>>();
-        let mut successors = labels
-            .iter()
-            .map(|&label| (label, Default::default()))
-            .collect::<HashMap<_, _>>();
+        let mut predecessors = HashMap::new();
+        let mut successors = HashMap::new();
 
         for b in &blocks {
             let start = b[0].label.as_deref().unwrap();
@@ -36,31 +30,41 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
             if let Some(labels) = b.last().unwrap().labels.as_ref() {
                 for dest in labels {
                     let dest = dest.as_str();
-                    successors.entry(start).or_insert_with(Vec::new).push(dest);
+                    successors
+                        .entry(start)
+                        .or_insert_with(HashSet::new)
+                        .insert(dest);
                     predecessors
                         .entry(dest)
-                        .or_insert_with(Vec::new)
-                        .push(start);
+                        .or_insert_with(HashSet::new)
+                        .insert(start);
                 }
             }
         }
         (predecessors, successors)
     };
 
-    let mut defined: HashMap<String, (HashSet<String>, HashSet<String>)> = labels
-        .iter()
-        .map(|label| (label.to_string(), Default::default()))
-        .collect();
+    let mut defined: HashMap<String, (HashSet<String>, HashSet<String>)> = HashMap::new();
 
     let mut work_list = labels.clone();
 
     while let Some(label) = work_list.pop() {
-        let in_vars: HashSet<String> = predecessors[label]
+        let in_vars: HashSet<String> = predecessors
+            .get(label)
+            .unwrap_or(&Default::default())
             .iter()
-            .flat_map(|&p| defined[p].1.iter().cloned())
+            .flat_map(|&p| {
+                defined
+                    .get(p)
+                    .into_iter()
+                    .flat_map(|(_, out_vars)| out_vars.iter())
+            })
+            .cloned()
             .collect();
 
-        let out_vars: HashSet<String> = label_map[label]
+        let out_vars: HashSet<String> = label_map
+            .get(label)
+            .unwrap_or(&Default::default())
             .iter()
             .filter_map(|i| i.dest.clone())
             .chain(in_vars.iter().cloned())
@@ -70,7 +74,13 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
         entry.0 = in_vars;
         if entry.1 != out_vars {
             entry.1 = out_vars;
-            work_list.extend(successors[label].iter().cloned());
+            work_list.extend(
+                successors
+                    .get(label)
+                    .into_iter()
+                    .flat_map(HashSet::iter)
+                    .cloned(),
+            );
         }
     }
 
