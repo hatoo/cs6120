@@ -12,7 +12,7 @@ impl Deref for BasicBlocks {
     type Target = [Vec<Instruction>];
 
     fn deref(&self) -> &Self::Target {
-        &&self.0
+        &self.0
     }
 }
 
