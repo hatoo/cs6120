@@ -10,13 +10,13 @@ mod dataflow;
 
 #[derive(Deserialize, Debug, Serialize)]
 struct Bril {
-    functions: Vec<Function>,
+    pub functions: Vec<Function>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]
 struct Function {
-    instrs: Vec<Instruction>,
-    name: String,
+    pub instrs: Vec<Instruction>,
+    pub name: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -433,7 +433,7 @@ mod test {
 
     use super::*;
 
-    fn bril2json(src: &str) -> String {
+    pub fn bril2json(src: &str) -> String {
         let mut child = Command::new("bril2json")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -446,7 +446,7 @@ mod test {
         String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap()
     }
 
-    fn bril2txt(src: &str) -> String {
+    pub fn bril2txt(src: &str) -> String {
         let mut child = Command::new("bril2txt")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -459,7 +459,7 @@ mod test {
         String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap()
     }
 
-    fn brili(src: &str) -> (String, usize) {
+    pub fn brili(src: &str) -> (String, usize) {
         let mut child = Command::new("brili")
             .arg("-p")
             .stdin(Stdio::piped())

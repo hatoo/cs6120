@@ -1,0 +1,43 @@
+---
+source: mybril/src/dataflow.rs
+expression: "format!(\"{txt}\\n{output}\")"
+input_file: mybril/tests/examples/df/fact.bril
+---
+@main {
+  result: int = const 1;
+  i: int = const 8;
+
+.header:
+  # Enter body if i >= 0.
+  zero: int = const 0;
+  cond: bool = gt i zero;
+  br cond .body .end;
+
+.body:
+  result: int = mul result i;
+
+  # i--
+  one: int = const 1;
+  i: int = sub i one;
+
+  jmp .header;
+
+.end:
+  print result;
+}
+
+main:
+  b0:
+    in: {}
+    out: {"i", "result"}
+  header:
+    in: {"cond", "i", "one", "result", "zero"}
+    out: {"cond", "i", "one", "result", "zero"}
+  body:
+    in: {"cond", "i", "one", "result", "zero"}
+    out: {"cond", "i", "one", "result", "zero"}
+  end:
+    in: {"cond", "i", "one", "result", "zero"}
+    out: {"cond", "i", "one", "result", "zero"}
+
+
