@@ -3,50 +3,53 @@ use std::collections::{HashMap, HashSet};
 use crate::{add_label, add_terminatior, partition, Function};
 
 fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))> {
-    let mut blocks = partition(&func.instrs);
-    add_label(&mut blocks);
-    add_terminatior(&mut blocks);
+    let blocks = {
+        let mut blocks = partition(&func.instrs);
+        add_label(&mut blocks);
+        add_terminatior(&mut blocks);
+        blocks
+    };
 
     let label_map = blocks
         .iter()
         .map(|block| (block[0].label.as_deref().unwrap(), block))
         .collect::<HashMap<_, _>>();
 
-    let mut predecessors = blocks
-        .iter()
-        .map(|block| block[0].label.as_deref().unwrap())
-        .map(|label| (label, Default::default()))
-        .collect::<HashMap<_, _>>();
-    let mut successors = blocks
-        .iter()
-        .map(|block| block[0].label.as_deref().unwrap())
-        .map(|label| (label, Default::default()))
-        .collect::<HashMap<_, _>>();
+    let labels: Vec<&str> = label_map.keys().map(|&l| l).collect();
 
-    for b in &blocks {
-        let start = b[0].label.as_deref().unwrap();
+    let (predecessors, successors) = {
+        let mut predecessors = labels
+            .iter()
+            .map(|&label| (label, Default::default()))
+            .collect::<HashMap<_, _>>();
+        let mut successors = labels
+            .iter()
+            .map(|&label| (label, Default::default()))
+            .collect::<HashMap<_, _>>();
 
-        if let Some(labels) = b.last().unwrap().labels.as_ref() {
-            for dest in labels {
-                let dest = dest.as_str();
-                successors.entry(start).or_insert_with(Vec::new).push(dest);
-                predecessors
-                    .entry(dest)
-                    .or_insert_with(Vec::new)
-                    .push(start);
+        for b in &blocks {
+            let start = b[0].label.as_deref().unwrap();
+
+            if let Some(labels) = b.last().unwrap().labels.as_ref() {
+                for dest in labels {
+                    let dest = dest.as_str();
+                    successors.entry(start).or_insert_with(Vec::new).push(dest);
+                    predecessors
+                        .entry(dest)
+                        .or_insert_with(Vec::new)
+                        .push(start);
+                }
             }
         }
-    }
+        (predecessors, successors)
+    };
 
-    let mut work_list = blocks
-        .iter()
-        .map(|block| block[0].label.as_deref().unwrap())
-        .collect::<Vec<_>>();
-
-    let mut defined: HashMap<String, (HashSet<String>, HashSet<String>)> = work_list
+    let mut defined: HashMap<String, (HashSet<String>, HashSet<String>)> = labels
         .iter()
         .map(|label| (label.to_string(), Default::default()))
         .collect();
+
+    let mut work_list = labels;
 
     while let Some(label) = work_list.pop() {
         let in_vars: HashSet<String> = predecessors[label]
