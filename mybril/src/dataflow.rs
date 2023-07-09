@@ -7,8 +7,6 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
     add_label(&mut blocks);
     add_terminatior(&mut blocks);
 
-    dbg!(&blocks);
-
     let label_map = blocks
         .iter()
         .map(|block| (block[0].label.as_deref().unwrap(), block))

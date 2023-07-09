@@ -147,8 +147,7 @@ impl ValueTable {
 
     fn root(&mut self, var: &str) -> String {
         let num = self.num(var);
-        dbg!(var, &self.var2num, &self.num2var);
-        dbg!(self.num2var[&num].clone())
+        self.num2var[&num].clone()
     }
 
     fn value(
@@ -576,8 +575,6 @@ mod test {
             let orig = brili(&json);
             let after = brili(&json_after);
 
-            dbg!(path);
-            dbg!(bril2txt(json_after.as_str()));
             assert_eq!(orig.0, after.0);
             assert!(orig.1 >= after.1);
 
