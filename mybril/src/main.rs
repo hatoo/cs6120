@@ -6,6 +6,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+mod dataflow;
+
 #[derive(Deserialize, Debug, Serialize)]
 struct Bril {
     functions: Vec<Function>,
