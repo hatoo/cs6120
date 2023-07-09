@@ -10,12 +10,15 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
         blocks
     };
 
+    let labels: Vec<&str> = blocks
+        .iter()
+        .map(|block| block[0].label.as_deref().unwrap())
+        .collect();
+
     let label_map = blocks
         .iter()
         .map(|block| (block[0].label.as_deref().unwrap(), block))
         .collect::<HashMap<_, _>>();
-
-    let labels: Vec<&str> = label_map.keys().map(|&l| l).collect();
 
     let (predecessors, successors) = {
         let mut predecessors = labels
@@ -49,7 +52,7 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
         .map(|label| (label.to_string(), Default::default()))
         .collect();
 
-    let mut work_list = labels;
+    let mut work_list = labels.clone();
 
     while let Some(label) = work_list.pop() {
         let in_vars: HashSet<String> = predecessors[label]
@@ -71,12 +74,9 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
         }
     }
 
-    blocks
-        .iter()
-        .map(|b| {
-            let label = b[0].label.as_deref().unwrap();
-            (label.to_string(), defined.remove(label).unwrap())
-        })
+    labels
+        .into_iter()
+        .map(|l| (l.to_string(), defined.remove(l).unwrap()))
         .collect()
 }
 
