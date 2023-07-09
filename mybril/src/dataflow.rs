@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{add_label, add_terminatior, partition, Function, Instruction};
+use crate::{basic_block::BasicBlocks, Function, Instruction};
 
 trait Merger<S>
 where
@@ -28,14 +28,8 @@ where
     M: Merger<S>,
     T: Tranfer<S>,
 {
-    fn analyze(&self, func: &mut Function) -> HashMap<String, (S, S)> {
-        let blocks = {
-            let mut blocks = partition(&func.instrs);
-            add_label(&mut blocks);
-            add_terminatior(&mut blocks);
-            blocks
-        };
-
+    fn analyze(&self, blocks: &BasicBlocks) -> HashMap<String, (S, S)> {
+        let blocks = blocks.as_ref();
         let labels: Vec<&str> = blocks
             .iter()
             .map(|block| block[0].label.as_deref().unwrap())
@@ -50,7 +44,7 @@ where
             let mut predecessors = HashMap::new();
             let mut successors = HashMap::new();
 
-            for b in &blocks {
+            for b in blocks {
                 let start = b[0].label.as_deref().unwrap();
 
                 if let Some(labels) = b.last().unwrap().labels.as_ref() {
@@ -116,18 +110,12 @@ where
             }
         }
 
-        func.instrs = blocks.into_iter().flat_map(|b| b.into_iter()).collect();
         result
     }
 }
 
 fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))> {
-    let blocks = {
-        let mut blocks = partition(&func.instrs);
-        add_label(&mut blocks);
-        add_terminatior(&mut blocks);
-        blocks
-    };
+    let blocks = BasicBlocks::new(&func.instrs);
 
     let labels: Vec<&str> = blocks
         .iter()
@@ -143,7 +131,7 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
         let mut predecessors = HashMap::new();
         let mut successors = HashMap::new();
 
-        for b in &blocks {
+        for b in blocks.as_ref() {
             let start = b[0].label.as_deref().unwrap();
 
             if let Some(labels) = b.last().unwrap().labels.as_ref() {
@@ -249,6 +237,7 @@ mod test {
     use insta::{assert_display_snapshot, glob};
 
     use crate::{
+        basic_block::BasicBlocks,
         dataflow::{defined, DEFINED},
         test::bril2json,
         Bril,
@@ -293,9 +282,13 @@ mod test {
             let mut output = String::new();
 
             for func in &mut bril.functions {
-                let mut defined = DEFINED.analyze(func);
-                let labels = func
-                    .instrs
+                let basic_blocks = BasicBlocks::new(func.instrs.as_slice());
+                let mut defined = DEFINED.analyze(&basic_blocks);
+                let instrs = basic_blocks
+                    .iter()
+                    .flat_map(|b| b.iter())
+                    .collect::<Vec<_>>();
+                let labels = instrs
                     .iter()
                     .filter_map(|i| i.label.as_deref())
                     .collect::<Vec<_>>();

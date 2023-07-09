@@ -1,11 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     io::{stdin, Read},
+    ops::Deref,
 };
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::basic_block::{partition, BasicBlocks};
+
+mod basic_block;
 mod dataflow;
 
 #[derive(Deserialize, Debug, Serialize)]
@@ -20,7 +24,7 @@ struct Function {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
-struct Instruction {
+pub struct Instruction {
     #[serde(skip_serializing_if = "Option::is_none")]
     label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -288,107 +292,6 @@ fn drop_kill(instrs: &mut Vec<Instruction>) {
         .collect();
 }
 
-struct Labeler {
-    banned: HashSet<String>,
-    counters: HashMap<String, usize>,
-}
-
-impl Labeler {
-    fn new(partitioned: &[Vec<Instruction>]) -> Self {
-        let banned: HashSet<String> = partitioned
-            .iter()
-            .filter_map(|block| block[0].label.clone())
-            .collect();
-
-        Self {
-            banned,
-            counters: HashMap::new(),
-        }
-    }
-
-    fn label(&mut self, prefix: &str) -> String {
-        let counter = self.counters.entry(prefix.to_string()).or_insert(0);
-        loop {
-            let label = format!("{}{}", prefix, counter);
-            *counter += 1;
-            if !self.banned.contains(&label) {
-                return label;
-            }
-        }
-    }
-}
-
-fn partition(instrs: &[Instruction]) -> Vec<Vec<Instruction>> {
-    let mut blocks = Vec::new();
-    let mut block = Vec::new();
-    for instr in instrs {
-        if instr.label.is_some() {
-            if !block.is_empty() {
-                blocks.push(block);
-            }
-            block = Vec::new();
-            block.push(instr.clone());
-        } else {
-            match instr.op.as_deref() {
-                Some("br") | Some("jmp") => {
-                    block.push(instr.clone());
-                    blocks.push(block);
-                    block = Vec::new();
-                }
-                _ => {
-                    block.push(instr.clone());
-                }
-            }
-        }
-    }
-    if !block.is_empty() {
-        blocks.push(block);
-    }
-    blocks
-}
-
-fn add_label(partitioned: &mut [Vec<Instruction>]) {
-    let mut labeler = Labeler::new(&partitioned);
-
-    for block in partitioned {
-        if block[0].label.is_none() {
-            block.insert(
-                0,
-                Instruction {
-                    label: Some(labeler.label("b")),
-                    ..Default::default()
-                },
-            );
-        }
-    }
-}
-
-fn add_terminatior(labeled: &mut [Vec<Instruction>]) {
-    for i in 0..labeled.len() {
-        let next = labeled
-            .get(i + 1)
-            .map(|block| block[0].label.as_deref().unwrap());
-
-        match labeled[i].last().unwrap().op.as_deref() {
-            Some("br") | Some("jmp") | Some("ret") => {}
-            _ => {
-                if let Some(next) = next {
-                    labeled[i].push(Instruction {
-                        op: Some("jmp".to_string()),
-                        labels: Some(vec![next.to_string()]),
-                        ..Default::default()
-                    })
-                } else {
-                    labeled[i].push(Instruction {
-                        op: Some("ret".to_string()),
-                        ..Default::default()
-                    })
-                }
-            }
-        }
-    }
-}
-
 fn dot(bril: &Bril) -> String {
     use std::fmt::Write;
 
@@ -397,16 +300,14 @@ fn dot(bril: &Bril) -> String {
     for function in &bril.functions {
         writeln!(dot, "digraph {} {{", function.name).unwrap();
 
-        let mut partitioned = partition(&function.instrs);
-        add_label(&mut partitioned);
-        add_terminatior(&mut partitioned);
+        let basic_blocks = BasicBlocks::new(&function.instrs);
 
-        for block in &partitioned {
+        for block in basic_blocks.as_ref() {
             let label = block[0].label.as_deref().unwrap();
             writeln!(dot, "  {label};").unwrap();
         }
 
-        for block in &partitioned {
+        for block in basic_blocks.deref() {
             let from = block[0].label.as_deref().unwrap();
             if let Some(labels) = block.last().unwrap().labels.as_ref() {
                 for to in labels {
