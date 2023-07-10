@@ -234,7 +234,7 @@ mod test {
         basic_block::BasicBlock,
         dataflow::{defined, DEFINED},
         test::bril2json,
-        Bril,
+        Bril, Instruction,
     };
 
     #[test]
@@ -279,8 +279,8 @@ mod test {
                 let basic_blocks = BasicBlock::new_blocks(func.instrs.as_slice());
                 let mut defined = DEFINED.analyze(&basic_blocks);
                 let instrs = basic_blocks
-                    .iter()
-                    .flat_map(|b| b.iter())
+                    .into_iter()
+                    .flat_map(|b| Into::<Vec<Instruction>>::into(b).into_iter())
                     .collect::<Vec<_>>();
                 let labels = instrs
                     .iter()
