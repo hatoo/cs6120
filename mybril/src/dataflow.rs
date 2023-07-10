@@ -22,6 +22,12 @@ struct Forward<S, M, T> {
     _s: PhantomData<S>,
 }
 
+struct BackWard<S, M, T> {
+    m: M,
+    t: T,
+    _s: PhantomData<S>,
+}
+
 impl<S, M, T> Forward<S, M, T>
 where
     S: 'static + PartialEq,
@@ -78,31 +84,30 @@ where
 
             let out_vars = self.t.transfer(label_map[label], &in_vars);
 
-            match result.entry(label.to_string()) {
+            let updated = match result.entry(label.to_string()) {
                 Entry::Occupied(mut io) => {
                     let entry = io.get_mut();
                     entry.0 = in_vars;
                     if entry.1 != out_vars {
                         entry.1 = out_vars;
-                        work_list.extend(
-                            successors
-                                .get(label)
-                                .into_iter()
-                                .flat_map(HashSet::iter)
-                                .cloned(),
-                        );
+                        true
+                    } else {
+                        false
                     }
                 }
                 Entry::Vacant(io) => {
                     io.insert((in_vars, out_vars));
-                    work_list.extend(
-                        successors
-                            .get(label)
-                            .into_iter()
-                            .flat_map(HashSet::iter)
-                            .cloned(),
-                    );
+                    true
                 }
+            };
+            if updated {
+                work_list.extend(
+                    successors
+                        .get(label)
+                        .into_iter()
+                        .flat_map(HashSet::iter)
+                        .cloned(),
+                );
             }
         }
 
