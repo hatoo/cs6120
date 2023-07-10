@@ -16,7 +16,7 @@ struct Bril {
     pub functions: Vec<Function>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct Argument {
     name: String,
     r#type: String,

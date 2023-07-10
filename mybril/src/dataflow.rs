@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{basic_block::BasicBlock, Function, Instruction};
+use crate::{basic_block::BasicBlock, Argument, Function, Instruction};
 
 trait Merger<S>
 where
@@ -28,7 +28,7 @@ where
     M: Merger<S>,
     T: Tranfer<S>,
 {
-    fn analyze(&self, blocks: &[BasicBlock]) -> HashMap<String, (S, S)> {
+    fn analyze(&self, blocks: &[BasicBlock], entry: &str, args: S) -> HashMap<String, (S, S)> {
         let labels: Vec<&str> = blocks
             .iter()
             .map(|block| block[0].label.as_deref().unwrap())
@@ -64,7 +64,6 @@ where
         };
 
         let mut result: HashMap<String, (S, S)> = HashMap::new();
-
         let mut work_list = labels.clone();
 
         while let Some(label) = work_list.pop() {
@@ -73,7 +72,8 @@ where
                     .get(label)
                     .unwrap_or(&Default::default())
                     .iter()
-                    .flat_map(|&p| result.get(p).into_iter().map(|(_, out_vars)| out_vars)),
+                    .flat_map(|&p| result.get(p).into_iter().map(|(_, out_vars)| out_vars))
+                    .chain(if label == entry { Some(&args) } else { None }.into_iter()),
             );
 
             let out_vars = self.t.transfer(label_map[label], &in_vars);
@@ -145,7 +145,7 @@ const DEFINED: Forward<HashSet<String>, DefinedMerger, DefinedTransfer> = Forwar
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeSet, HashSet};
 
     use insta::{assert_display_snapshot, glob};
 
@@ -162,7 +162,14 @@ mod test {
 
             for func in &mut bril.functions {
                 let basic_blocks = BasicBlock::new_blocks(func.instrs.as_slice());
-                let mut defined = DEFINED.analyze(&basic_blocks);
+                let mut defined = DEFINED.analyze(
+                    &basic_blocks,
+                    basic_blocks[0][0].label.as_deref().unwrap(),
+                    func.args
+                        .as_ref()
+                        .map(|a| a.iter().map(|a| a.name.clone()).collect())
+                        .unwrap_or_default(),
+                );
                 let instrs = basic_blocks
                     .into_iter()
                     .flat_map(|b| Into::<Vec<Instruction>>::into(b).into_iter())

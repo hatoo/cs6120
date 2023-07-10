@@ -22,16 +22,16 @@ input_file: mybril/tests/examples/df/cond-args.bril
 
 main:
   b0:
-    in: {}
-    out: {"a", "b"}
+    in: {"cond"}
+    out: {"a", "b", "cond"}
   left:
-    in: {"a", "b"}
-    out: {"a", "b", "c"}
+    in: {"a", "b", "cond"}
+    out: {"a", "b", "c", "cond"}
   right:
-    in: {"a", "b"}
-    out: {"a", "b", "c"}
+    in: {"a", "b", "cond"}
+    out: {"a", "b", "c", "cond"}
   end:
-    in: {"a", "b", "c"}
-    out: {"a", "b", "c", "d"}
+    in: {"a", "b", "c", "cond"}
+    out: {"a", "b", "c", "cond", "d"}
 
 
