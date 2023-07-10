@@ -16,10 +16,17 @@ struct Bril {
     pub functions: Vec<Function>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct Argument {
+    name: String,
+    r#type: String,
+}
+
 #[derive(Deserialize, Debug, Serialize)]
 struct Function {
     pub instrs: Vec<Instruction>,
     pub name: String,
+    pub args: Option<Vec<Argument>>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]

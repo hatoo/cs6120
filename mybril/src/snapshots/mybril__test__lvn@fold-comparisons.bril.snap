@@ -27,8 +27,8 @@ input_file: mybril/tests/examples/lvn/fold-comparisons.bril
 }
 
 
-114514 -> 0
+114514 -> 114514
 
-@main {
+@main(arg1: int, arg2: int) {
 }
 

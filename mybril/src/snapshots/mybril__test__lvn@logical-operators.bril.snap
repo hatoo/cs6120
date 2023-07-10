@@ -31,8 +31,8 @@ input_file: mybril/tests/examples/lvn/logical-operators.bril
 }
 
 
-114514 -> 0
+114514 -> 114514
 
-@main {
+@main(arg1: bool, arg2: bool) {
 }
 
