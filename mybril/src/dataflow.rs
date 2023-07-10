@@ -115,10 +115,96 @@ where
     }
 }
 
-struct DefinedMerger;
+impl<S, M, T> BackWard<S, M, T>
+where
+    S: 'static + PartialEq,
+    M: Merger<S>,
+    T: Tranfer<S>,
+{
+    fn analyze(&self, blocks: &[BasicBlock]) -> HashMap<String, (S, S)> {
+        let labels: Vec<&str> = blocks
+            .iter()
+            .map(|block| block[0].label.as_deref().unwrap())
+            .collect();
+
+        let label_map = blocks
+            .iter()
+            .map(|block| (block[0].label.as_deref().unwrap(), block))
+            .collect::<HashMap<_, _>>();
+
+        let (predecessors, successors) = {
+            let mut predecessors = HashMap::new();
+            let mut successors = HashMap::new();
+
+            for b in blocks {
+                let start = b[0].label.as_deref().unwrap();
+
+                if let Some(labels) = b.last().unwrap().labels.as_ref() {
+                    for dest in labels {
+                        let dest = dest.as_str();
+                        successors
+                            .entry(start)
+                            .or_insert_with(HashSet::new)
+                            .insert(dest);
+                        predecessors
+                            .entry(dest)
+                            .or_insert_with(HashSet::new)
+                            .insert(start);
+                    }
+                }
+            }
+            (predecessors, successors)
+        };
+
+        let mut result: HashMap<String, (S, S)> = HashMap::new();
+        let mut work_list = labels.clone();
+
+        while let Some(label) = work_list.pop() {
+            let out_vars = self.m.merge(
+                successors
+                    .get(label)
+                    .unwrap_or(&Default::default())
+                    .iter()
+                    .flat_map(|&p| result.get(p).into_iter().map(|(in_vars, _)| in_vars)),
+            );
+
+            let in_vars = self.t.transfer(label_map[label], &out_vars);
+
+            let updated = match result.entry(label.to_string()) {
+                Entry::Occupied(mut io) => {
+                    let entry = io.get_mut();
+                    entry.1 = out_vars;
+                    if entry.0 != in_vars {
+                        entry.0 = in_vars;
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Entry::Vacant(io) => {
+                    io.insert((in_vars, out_vars));
+                    true
+                }
+            };
+            if updated {
+                work_list.extend(
+                    predecessors
+                        .get(label)
+                        .into_iter()
+                        .flat_map(HashSet::iter)
+                        .cloned(),
+                );
+            }
+        }
+
+        result
+    }
+}
+
+struct UnionMerger;
 struct DefinedTransfer;
 
-impl Merger<HashSet<String>> for DefinedMerger {
+impl Merger<HashSet<String>> for UnionMerger {
     fn merge<'a, I>(&self, iter: I) -> HashSet<String>
     where
         I: Iterator<Item = &'a HashSet<String>>,
@@ -131,8 +217,8 @@ impl Merger<HashSet<String>> for DefinedMerger {
 }
 
 impl Tranfer<HashSet<String>> for DefinedTransfer {
-    fn transfer(&self, instrs: &[Instruction], in_vars: &HashSet<String>) -> HashSet<String> {
-        let mut out_vars = in_vars.clone();
+    fn transfer(&self, instrs: &[Instruction], vars: &HashSet<String>) -> HashSet<String> {
+        let mut out_vars = vars.clone();
         for instr in instrs {
             if let Some(dest) = &instr.dest {
                 out_vars.insert(dest.clone());
@@ -142,8 +228,14 @@ impl Tranfer<HashSet<String>> for DefinedTransfer {
     }
 }
 
-const DEFINED: Forward<HashSet<String>, DefinedMerger, DefinedTransfer> = Forward {
-    m: DefinedMerger,
+const DEFINED: Forward<HashSet<String>, UnionMerger, DefinedTransfer> = Forward {
+    m: UnionMerger,
+    t: DefinedTransfer,
+    _s: PhantomData,
+};
+
+const LIVE: BackWard<HashSet<String>, UnionMerger, DefinedTransfer> = BackWard {
+    m: UnionMerger,
     t: DefinedTransfer,
     _s: PhantomData,
 };
