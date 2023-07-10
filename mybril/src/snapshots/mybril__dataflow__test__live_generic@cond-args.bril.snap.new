@@ -1,0 +1,38 @@
+---
+source: mybril/src/dataflow.rs
+assertion_line: 370
+expression: "format!(\"{txt}\\n{output}\")"
+input_file: mybril/tests/examples/df/cond-args.bril
+---
+@main(cond: bool) {
+  a: int = const 47;
+  b: int = const 42;
+  br cond .left .right;
+.left:
+  b: int = const 1;
+  c: int = const 5;
+  jmp .end;
+.right:
+  a: int = const 2;
+  c: int = const 10;
+  jmp .end;
+.end:
+  d: int = sub a c;
+  print d;
+}
+
+main:
+  b0:
+    in: {"cond"}
+    out: {"a"}
+  left:
+    in: {"a"}
+    out: {"a", "c"}
+  right:
+    in: {}
+    out: {"a", "c"}
+  end:
+    in: {"a", "c"}
+    out: {}
+
+

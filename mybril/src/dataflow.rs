@@ -203,6 +203,7 @@ where
 
 struct UnionMerger;
 struct DefinedTransfer;
+struct UsedTransfer;
 
 impl Merger<HashSet<String>> for UnionMerger {
     fn merge<'a, I>(&self, iter: I) -> HashSet<String>
@@ -218,13 +219,35 @@ impl Merger<HashSet<String>> for UnionMerger {
 
 impl Tranfer<HashSet<String>> for DefinedTransfer {
     fn transfer(&self, instrs: &[Instruction], vars: &HashSet<String>) -> HashSet<String> {
-        let mut out_vars = vars.clone();
+        let mut result = vars.clone();
         for instr in instrs {
             if let Some(dest) = &instr.dest {
-                out_vars.insert(dest.clone());
+                result.insert(dest.clone());
             }
         }
-        out_vars
+        result
+    }
+}
+
+impl Tranfer<HashSet<String>> for UsedTransfer {
+    fn transfer(&self, instrs: &[Instruction], vars: &HashSet<String>) -> HashSet<String> {
+        let mut result = vars.clone();
+        let mut defined = HashSet::new();
+        for instr in instrs {
+            if let Some(args) = &instr.args {
+                result.extend(
+                    args.iter()
+                        .filter(|v| !defined.contains(v.as_str()))
+                        .cloned(),
+                );
+            }
+
+            if let Some(dest) = &instr.dest {
+                defined.insert(dest.as_str());
+                result.remove(dest.as_str());
+            }
+        }
+        result
     }
 }
 
@@ -234,9 +257,9 @@ const DEFINED: Forward<HashSet<String>, UnionMerger, DefinedTransfer> = Forward 
     _s: PhantomData,
 };
 
-const LIVE: BackWard<HashSet<String>, UnionMerger, DefinedTransfer> = BackWard {
+const LIVE: BackWard<HashSet<String>, UnionMerger, UsedTransfer> = BackWard {
     m: UnionMerger,
-    t: DefinedTransfer,
+    t: UsedTransfer,
     _s: PhantomData,
 };
 
@@ -246,7 +269,12 @@ mod test {
 
     use insta::{assert_display_snapshot, glob};
 
-    use crate::{basic_block::BasicBlock, dataflow::DEFINED, test::bril2json, Bril, Instruction};
+    use crate::{
+        basic_block::BasicBlock,
+        dataflow::{DEFINED, LIVE},
+        test::bril2json,
+        Bril, Instruction,
+    };
 
     #[test]
     fn test_defined_generic() {
@@ -267,6 +295,50 @@ mod test {
                         .map(|a| a.iter().map(|a| a.name.clone()).collect())
                         .unwrap_or_default(),
                 );
+                let instrs = basic_blocks
+                    .into_iter()
+                    .flat_map(|b| Into::<Vec<Instruction>>::into(b).into_iter())
+                    .collect::<Vec<_>>();
+                let labels = instrs
+                    .iter()
+                    .filter_map(|i| i.label.as_deref())
+                    .collect::<Vec<_>>();
+                let defined = labels
+                    .into_iter()
+                    .map(|l| (l.to_string(), defined.remove(l).unwrap()))
+                    .collect::<Vec<_>>();
+
+                output.push_str(&format!("{}:\n", func.name));
+                for (label, (var_in, var_out)) in defined.iter() {
+                    output.push_str(&format!("  {}:\n", label));
+                    output.push_str(&format!(
+                        "    in: {:?}\n",
+                        var_in.into_iter().collect::<BTreeSet<_>>()
+                    ));
+                    output.push_str(&format!(
+                        "    out: {:?}\n",
+                        var_out.into_iter().collect::<BTreeSet<_>>()
+                    ));
+                }
+                output.push_str("\n");
+            }
+
+            assert_display_snapshot!(format!("{txt}\n{output}"));
+        });
+    }
+
+    #[test]
+    fn test_live_generic() {
+        glob!("..", "tests/examples/df/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let mut bril: Bril = serde_json::from_str(&json).unwrap();
+
+            let mut output = String::new();
+
+            for func in &mut bril.functions {
+                let basic_blocks = BasicBlock::new_blocks(func.instrs.as_slice());
+                let mut defined = LIVE.analyze(&basic_blocks);
                 let instrs = basic_blocks
                     .into_iter()
                     .flat_map(|b| Into::<Vec<Instruction>>::into(b).into_iter())
