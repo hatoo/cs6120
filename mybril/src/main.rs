@@ -1,13 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
     io::{stdin, Read},
-    ops::Deref,
 };
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::basic_block::{partition, BasicBlocks};
+use crate::basic_block::{partition, BasicBlock};
 
 mod basic_block;
 mod dataflow;
@@ -300,14 +299,14 @@ fn dot(bril: &Bril) -> String {
     for function in &bril.functions {
         writeln!(dot, "digraph {} {{", function.name).unwrap();
 
-        let basic_blocks = BasicBlocks::new(&function.instrs);
+        let basic_blocks = BasicBlock::new_blocks(&function.instrs);
 
-        for block in basic_blocks.as_ref() {
+        for block in &basic_blocks {
             let label = block[0].label.as_deref().unwrap();
             writeln!(dot, "  {label};").unwrap();
         }
 
-        for block in basic_blocks.deref() {
+        for block in &basic_blocks {
             let from = block[0].label.as_deref().unwrap();
             if let Some(labels) = block.last().unwrap().labels.as_ref() {
                 for to in labels {

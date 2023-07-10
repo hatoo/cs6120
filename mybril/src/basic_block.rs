@@ -6,22 +6,25 @@ use std::{
 use crate::Instruction;
 
 #[derive(Debug, Clone)]
-pub struct BasicBlocks(Vec<Vec<Instruction>>);
+pub struct BasicBlock(Vec<Instruction>);
 
-impl Deref for BasicBlocks {
-    type Target = [Vec<Instruction>];
+impl Deref for BasicBlock {
+    type Target = [Instruction];
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl BasicBlocks {
-    pub fn new(instrs: &[Instruction]) -> Self {
+impl BasicBlock {
+    pub fn new_blocks(instrs: &[Instruction]) -> Vec<Self> {
         let mut partitioned = partition(instrs);
         add_label(&mut partitioned);
         add_terminatior(&mut partitioned);
-        Self(partitioned)
+        partitioned
+            .into_iter()
+            .map(|block| Self(block))
+            .collect::<Vec<_>>()
     }
 }
 

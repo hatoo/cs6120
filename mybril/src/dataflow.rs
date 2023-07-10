@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{basic_block::BasicBlocks, Function, Instruction};
+use crate::{basic_block::BasicBlock, Function, Instruction};
 
 trait Merger<S>
 where
@@ -28,8 +28,7 @@ where
     M: Merger<S>,
     T: Tranfer<S>,
 {
-    fn analyze(&self, blocks: &BasicBlocks) -> HashMap<String, (S, S)> {
-        let blocks = blocks.as_ref();
+    fn analyze(&self, blocks: &[BasicBlock]) -> HashMap<String, (S, S)> {
         let labels: Vec<&str> = blocks
             .iter()
             .map(|block| block[0].label.as_deref().unwrap())
@@ -37,7 +36,7 @@ where
 
         let label_map = blocks
             .iter()
-            .map(|block| (block[0].label.as_deref().unwrap(), block.as_slice()))
+            .map(|block| (block[0].label.as_deref().unwrap(), block))
             .collect::<HashMap<_, _>>();
 
         let (predecessors, successors) = {
@@ -77,10 +76,7 @@ where
                     .flat_map(|&p| result.get(p).into_iter().map(|(_, out_vars)| out_vars)),
             );
 
-            let out_vars = self.t.transfer(
-                label_map.get(label).unwrap_or(&Default::default()),
-                &in_vars,
-            );
+            let out_vars = self.t.transfer(label_map[label], &in_vars);
 
             match result.entry(label.to_string()) {
                 Entry::Occupied(mut io) => {
@@ -115,7 +111,7 @@ where
 }
 
 fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))> {
-    let blocks = BasicBlocks::new(&func.instrs);
+    let blocks = BasicBlock::new_blocks(&func.instrs);
 
     let labels: Vec<&str> = blocks
         .iter()
@@ -124,14 +120,14 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
 
     let label_map = blocks
         .iter()
-        .map(|block| (block[0].label.as_deref().unwrap(), block.as_slice()))
+        .map(|block| (block[0].label.as_deref().unwrap(), block))
         .collect::<HashMap<_, _>>();
 
     let (predecessors, successors) = {
         let mut predecessors = HashMap::new();
         let mut successors = HashMap::new();
 
-        for b in blocks.as_ref() {
+        for b in &blocks {
             let start = b[0].label.as_deref().unwrap();
 
             if let Some(labels) = b.last().unwrap().labels.as_ref() {
@@ -169,9 +165,7 @@ fn defined(func: &Function) -> Vec<(String, (HashSet<String>, HashSet<String>))>
             .cloned()
             .collect();
 
-        let out_vars: HashSet<String> = label_map
-            .get(label)
-            .unwrap_or(&Default::default())
+        let out_vars: HashSet<String> = label_map[label]
             .iter()
             .filter_map(|i| i.dest.clone())
             .chain(in_vars.iter().cloned())
@@ -237,7 +231,7 @@ mod test {
     use insta::{assert_display_snapshot, glob};
 
     use crate::{
-        basic_block::BasicBlocks,
+        basic_block::BasicBlock,
         dataflow::{defined, DEFINED},
         test::bril2json,
         Bril,
@@ -282,7 +276,7 @@ mod test {
             let mut output = String::new();
 
             for func in &mut bril.functions {
-                let basic_blocks = BasicBlocks::new(func.instrs.as_slice());
+                let basic_blocks = BasicBlock::new_blocks(func.instrs.as_slice());
                 let mut defined = DEFINED.analyze(&basic_blocks);
                 let instrs = basic_blocks
                     .iter()
