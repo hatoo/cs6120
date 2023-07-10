@@ -1,6 +1,5 @@
 ---
 source: mybril/src/dataflow.rs
-assertion_line: 370
 expression: "format!(\"{txt}\\n{output}\")"
 input_file: mybril/tests/examples/df/fact.bril
 ---

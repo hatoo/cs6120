@@ -1,12 +1,12 @@
 ---
 source: mybril/src/dataflow.rs
-assertion_line: 370
 expression: "format!(\"{txt}\\n{output}\")"
-input_file: mybril/tests/examples/df/cond-args.bril
+input_file: mybril/tests/examples/df/cond.bril
 ---
-@main(cond: bool) {
+@main {
   a: int = const 47;
   b: int = const 42;
+  cond: bool = const true;
   br cond .left .right;
 .left:
   b: int = const 1;
@@ -23,7 +23,7 @@ input_file: mybril/tests/examples/df/cond-args.bril
 
 main:
   b0:
-    in: {"cond"}
+    in: {}
     out: {"a"}
   left:
     in: {"a"}
