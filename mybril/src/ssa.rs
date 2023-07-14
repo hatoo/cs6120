@@ -18,6 +18,11 @@ pub struct Cfg {
     graph: HashMap<String, CfgEntry>,
 }
 
+struct WithPhi {
+    phi: HashMap<String, HashMap<String, String>>,
+    block: BasicBlock,
+}
+
 impl Cfg {
     pub fn new(function: &Function) -> Self {
         let basic_blocks = BasicBlock::new_blocks(&function.instrs);
@@ -148,6 +153,57 @@ impl Cfg {
         }
 
         dominant_fronteers
+    }
+
+    pub fn insert_phi(&self) -> HashMap<String, WithPhi> {
+        let mut phi_blocks: HashMap<String, WithPhi> = self
+            .graph
+            .iter()
+            .map(|(label, entry)| {
+                (
+                    label.clone(),
+                    WithPhi {
+                        phi: Default::default(),
+                        block: entry.basic_block.clone(),
+                    },
+                )
+            })
+            .collect();
+
+        let mut defs: HashMap<&str, HashSet<&str>> = HashMap::new();
+
+        for (label, entry) in &self.graph {
+            for instr in entry.basic_block.as_ref() {
+                if let Some(dest) = &instr.dest {
+                    defs.entry(dest).or_default().insert(label.as_str());
+                }
+            }
+        }
+
+        let dominant_fronteers = self.dominant_fronteers();
+        for (var, defs) in defs {
+            let mut visited = HashSet::new();
+            let mut stack = defs.iter().copied().collect::<Vec<_>>();
+
+            while let Some(d) = stack.pop() {
+                if !visited.insert(d) {
+                    continue;
+                }
+                for &block in &dominant_fronteers[d] {
+                    phi_blocks
+                        .get_mut(block)
+                        .unwrap()
+                        .phi
+                        .entry(var.to_string())
+                        .or_default()
+                        .insert(d.to_string(), var.to_string());
+
+                    stack.push(block);
+                }
+            }
+        }
+
+        phi_blocks
     }
 }
 
