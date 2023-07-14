@@ -94,11 +94,11 @@ impl Cfg {
     }
 
     pub fn dominators(&self) -> HashMap<&str, HashSet<&str>> {
-        let mut dominants = HashMap::new();
+        let mut dominators = HashMap::new();
         let order = self.reverse_post_order();
 
         for &label in &order {
-            dominants.insert(label, order.iter().copied().collect::<HashSet<_>>());
+            dominators.insert(label, order.iter().copied().collect::<HashSet<_>>());
         }
 
         let mut changed = true;
@@ -106,29 +106,29 @@ impl Cfg {
             changed = false;
             for &label in &order {
                 let predecessors = &self.graph[label].predesessors;
-                let mut new_dominants = if predecessors.is_empty() {
+                let mut new_doominators = if predecessors.is_empty() {
                     Default::default()
                 } else {
                     let mut new_dominants = order.iter().copied().collect::<HashSet<_>>();
                     for pred in &self.graph[label].predesessors {
                         new_dominants = new_dominants
-                            .intersection(&dominants[pred.as_str()])
+                            .intersection(&dominators[pred.as_str()])
                             .copied()
                             .collect::<HashSet<_>>();
                     }
                     new_dominants
                 };
-                new_dominants.insert(label);
-                let entry = dominants.entry(label).or_default();
+                new_doominators.insert(label);
+                let entry = dominators.entry(label).or_default();
 
-                if new_dominants != *entry {
+                if new_doominators != *entry {
                     changed = true;
-                    *entry = new_dominants;
+                    *entry = new_doominators;
                 }
             }
         }
 
-        dominants
+        dominators
     }
 }
 
