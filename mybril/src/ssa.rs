@@ -145,7 +145,7 @@ impl Cfg {
             for &a in dom {
                 // a dominates b
                 for c in &self.graph[b].successors {
-                    if !dominators[c.as_str()].contains(b) {
+                    if !dominators[c.as_str()].contains(b) && a != c {
                         dominant_fronteers.entry(a).or_default().insert(c.as_str());
                     }
                 }
@@ -189,7 +189,7 @@ impl Cfg {
                 if !visited.insert(d) {
                     continue;
                 }
-                for &block in &dominant_fronteers[d] {
+                for &block in dominant_fronteers.get(d).unwrap_or(&Default::default()) {
                     phi_blocks
                         .get_mut(block)
                         .unwrap()
@@ -235,6 +235,44 @@ mod test {
                     for dominator in dominators.into_iter().collect::<BTreeSet<_>>() {
                         output.push_str(&format!("{} ", dominator));
                     }
+                    output.push_str("\n");
+                }
+                output.push_str("\n");
+            }
+
+            assert_display_snapshot!(output);
+        });
+    }
+
+    #[test]
+    fn test_insert_phi() {
+        glob!("..", "tests/examples/ssa/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let bril: Bril = serde_json::from_str(&json).unwrap();
+
+            let mut output = txt.clone();
+            output.push_str("\n\n");
+
+            for function in bril.functions {
+                let cfg = crate::ssa::Cfg::new(&function);
+                let phi = cfg.insert_phi();
+
+                output.push_str(&format!("function {}:\n", function.name));
+                for (label, with_phi) in phi.into_iter().collect::<BTreeMap<_, _>>() {
+                    output.push_str(&format!("  {}:\n", label));
+
+                    for phi_node in with_phi.phi.into_iter().map(|(var, froms)| {
+                        let mut froms = froms
+                            .into_iter()
+                            .map(|(label, var)| format!("{}:{}", label, var))
+                            .collect::<Vec<_>>();
+                        froms.sort();
+                        format!("{} <- {}", var, froms.join(", "))
+                    }) {
+                        output.push_str(&format!("    {};\n", phi_node));
+                    }
+
                     output.push_str("\n");
                 }
                 output.push_str("\n");

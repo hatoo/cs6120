@@ -1,0 +1,32 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/examples/ssa/if-orig.bril
+---
+@main(cond: bool) {
+.entry:
+    a: int = const 47;
+    br cond .left .right;
+.left:
+    a: int = add a a;
+    jmp .exit;
+.right:
+    a: int = mul a a;
+    jmp .exit;
+.exit:
+    print a;
+}
+
+
+function main:
+  entry:
+
+  exit:
+    a <- entry:a, left:a, right:a;
+
+  left:
+
+  right:
+
+
+
