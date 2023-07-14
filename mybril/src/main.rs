@@ -10,6 +10,7 @@ use crate::basic_block::{partition, BasicBlock};
 
 mod basic_block;
 mod dataflow;
+mod ssa;
 
 #[derive(Deserialize, Debug, Serialize)]
 struct Bril {
@@ -17,13 +18,13 @@ struct Bril {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-struct Argument {
-    name: String,
-    r#type: String,
+pub struct Argument {
+    pub name: String,
+    pub r#type: String,
 }
 
 #[derive(Deserialize, Debug, Serialize)]
-struct Function {
+pub struct Function {
     pub instrs: Vec<Instruction>,
     pub name: String,
     pub args: Option<Vec<Argument>>,
