@@ -142,7 +142,7 @@ mod test {
 
     #[test]
     fn test_dominators_dot() {
-        glob!("..", "tests/test/interp/core/*.bril", |path| {
+        glob!("..", "tests/examples/df/*.bril", |path| {
             let txt = std::fs::read_to_string(&path).unwrap();
             let json = bril2json(&txt);
             let bril: Bril = serde_json::from_str(&json).unwrap();
