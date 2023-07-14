@@ -1,0 +1,22 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/examples/ssa/loop-orig.bril
+---
+@main {
+.entry:
+    i: int = const 1;
+    jmp .loop;
+.loop:
+    max: int = const 10;
+    cond: bool = lt i max;
+    br cond .body .exit;
+.body:
+    i: int = add i i;
+    jmp .loop;
+.exit:
+    print i;
+}
+
+
+

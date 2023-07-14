@@ -1,10 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
-    iter::Successors,
+    iter::{self, Successors},
 };
 
-use crate::{basic_block::BasicBlock, Argument, Function};
+use crate::{basic_block::BasicBlock, Argument, Function, Instruction};
 
 pub struct CfgEntry {
     basic_block: BasicBlock,
@@ -16,11 +16,6 @@ pub struct Cfg {
     arguments: Vec<Argument>,
     entry: String,
     graph: HashMap<String, CfgEntry>,
-}
-
-struct WithPhi {
-    phi: HashMap<String, HashMap<String, String>>,
-    block: BasicBlock,
 }
 
 impl Cfg {
@@ -155,20 +150,8 @@ impl Cfg {
         dominant_fronteers
     }
 
-    pub fn insert_phi(&self) -> HashMap<String, WithPhi> {
-        let mut phi_blocks: HashMap<String, WithPhi> = self
-            .graph
-            .iter()
-            .map(|(label, entry)| {
-                (
-                    label.clone(),
-                    WithPhi {
-                        phi: Default::default(),
-                        block: entry.basic_block.clone(),
-                    },
-                )
-            })
-            .collect();
+    pub fn insert_phi(&mut self) {
+        let mut phis: HashMap<String, HashMap<String, HashMap<String, String>>> = HashMap::new();
 
         let mut defs: HashMap<&str, HashSet<&str>> = HashMap::new();
 
@@ -190,10 +173,8 @@ impl Cfg {
                     continue;
                 }
                 for &block in dominant_fronteers.get(d).unwrap_or(&Default::default()) {
-                    phi_blocks
-                        .get_mut(block)
-                        .unwrap()
-                        .phi
+                    phis.entry(block.to_string())
+                        .or_default()
                         .entry(var.to_string())
                         .or_default()
                         .insert(d.to_string(), var.to_string());
@@ -203,7 +184,11 @@ impl Cfg {
             }
         }
 
-        phi_blocks
+        for (label, block) in self.graph.iter_mut() {
+            if let Some(phis) = phis.remove(label.as_str()) {
+                block.basic_block.insert_phi(&phis);
+            }
+        }
     }
 }
 
@@ -213,7 +198,11 @@ mod test {
 
     use insta::{assert_display_snapshot, glob};
 
-    use crate::{test::bril2json, Bril};
+    use crate::{
+        basic_block::BasicBlock,
+        test::{bril2json, bril2txt, brili},
+        Bril,
+    };
 
     #[test]
     fn test_dominators_dot() {
@@ -249,36 +238,41 @@ mod test {
         glob!("..", "tests/examples/ssa/*.bril", |path| {
             let txt = std::fs::read_to_string(&path).unwrap();
             let json = bril2json(&txt);
-            let bril: Bril = serde_json::from_str(&json).unwrap();
+            let mut bril: Bril = serde_json::from_str(&json).unwrap();
 
             let mut output = txt.clone();
             output.push_str("\n\n");
 
-            for function in bril.functions {
-                let cfg = crate::ssa::Cfg::new(&function);
-                let phi = cfg.insert_phi();
+            for function in &mut bril.functions {
+                let mut cfg = crate::ssa::Cfg::new(&function);
+                cfg.insert_phi();
 
-                output.push_str(&format!("function {}:\n", function.name));
-                for (label, with_phi) in phi.into_iter().collect::<BTreeMap<_, _>>() {
-                    output.push_str(&format!("  {}:\n", label));
+                // !!
+                let basic_blocks = BasicBlock::new_blocks(function.instrs.as_slice());
 
-                    for phi_node in with_phi.phi.into_iter().map(|(var, froms)| {
-                        let mut froms = froms
-                            .into_iter()
-                            .map(|(label, var)| format!("{}:{}", label, var))
-                            .collect::<Vec<_>>();
-                        froms.sort();
-                        format!("{} <- {}", var, froms.join(", "))
-                    }) {
-                        output.push_str(&format!("    {};\n", phi_node));
-                    }
-
-                    output.push_str("\n");
-                }
-                output.push_str("\n");
+                function.instrs = basic_blocks
+                    .into_iter()
+                    .flat_map(|block| {
+                        let label = block[0].label.clone().unwrap();
+                        cfg.graph[&label].basic_block.iter().cloned()
+                    })
+                    .collect::<Vec<_>>();
             }
 
-            assert_display_snapshot!(output);
+            let json_after = serde_json::to_string_pretty(&bril).unwrap();
+
+            let orig = brili(&json);
+            let after = brili(&json_after);
+
+            assert_eq!(orig.0, after.0);
+
+            assert_display_snapshot!(format!(
+                "{}\n\n{} -> {}\n\n{}",
+                txt,
+                orig.1,
+                after.1,
+                bril2txt(json_after.as_str())
+            ));
         });
     }
 }

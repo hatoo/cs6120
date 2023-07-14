@@ -1,6 +1,6 @@
 ---
 source: mybril/src/ssa.rs
-expression: output
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
 input_file: mybril/tests/examples/ssa/loop-orig.bril
 ---
 @main {
@@ -19,15 +19,22 @@ input_file: mybril/tests/examples/ssa/loop-orig.bril
 }
 
 
-function main:
-  body:
+26 -> 32
 
-  entry:
-
-  exit:
-
-  loop:
-    i <- body:i, entry:i;
-
-
+@main {
+.entry:
+  i: int = const 1;
+  jmp .loop;
+.loop:
+  i = phi i i .entry .body;
+  max: int = const 10;
+  cond: bool = lt i max;
+  br cond .body .exit;
+.body:
+  i: int = add i i;
+  jmp .loop;
+.exit:
+  print i;
+  ret;
+}
 

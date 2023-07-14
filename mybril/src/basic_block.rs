@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    iter,
     ops::Deref,
 };
 
@@ -32,6 +33,28 @@ impl BasicBlock {
             .into_iter()
             .map(|block| Self(block))
             .collect::<Vec<_>>()
+    }
+
+    pub fn insert_phi(&mut self, phis: &HashMap<String, HashMap<String, String>>) {
+        self.0 = iter::once(self[0].clone())
+            .chain(
+                phis.into_iter()
+                    .map(|(var_name, aliases)| {
+                        let aliases = aliases.iter().collect::<Vec<_>>();
+
+                        Instruction {
+                            op: Some("phi".to_string()),
+                            labels: Some(
+                                aliases.iter().map(|(label, _)| label.to_string()).collect(),
+                            ),
+                            dest: Some(var_name.to_string()),
+                            args: Some(aliases.iter().map(|(_, var)| var.to_string()).collect()),
+                            ..Default::default()
+                        }
+                    })
+                    .chain(self[1..].iter().cloned()),
+            )
+            .collect::<Vec<_>>();
     }
 }
 

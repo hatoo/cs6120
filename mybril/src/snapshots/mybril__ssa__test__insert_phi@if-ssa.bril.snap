@@ -1,6 +1,6 @@
 ---
 source: mybril/src/ssa.rs
-expression: output
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
 input_file: mybril/tests/examples/ssa/if-ssa.bril
 ---
 @main(cond: bool) {
@@ -19,17 +19,24 @@ input_file: mybril/tests/examples/ssa/if-ssa.bril
 }
 
 
-function main:
-  entry:
+114514 -> 114514
 
-  exit:
-    a.1 <- entry:a.1;
-    a.2 <- left:a.2;
-    a.3 <- right:a.3;
-
-  left:
-
-  right:
-
-
+@main(cond: bool) {
+.entry:
+  a.1: int = const 47;
+  br cond .left .right;
+.left:
+  a.2: int = add a.1 a.1;
+  jmp .exit;
+.right:
+  a.3: int = mul a.1 a.1;
+  jmp .exit;
+.exit:
+  a.2 = phi a.2 .left;
+  a.3 = phi a.3 .right;
+  a.1 = phi a.1 .entry;
+  a.4: int = phi a.2 a.3 .left .right;
+  print a.4;
+  ret;
+}
 
