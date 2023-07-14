@@ -1,10 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-    iter::{self, Successors},
-};
+use std::collections::{HashMap, HashSet};
 
-use crate::{basic_block::BasicBlock, Argument, Function, Instruction};
+use crate::{basic_block::BasicBlock, Argument, Function};
 
 pub struct CfgEntry {
     basic_block: BasicBlock,
@@ -190,6 +186,85 @@ impl Cfg {
             }
         }
     }
+
+    fn _rename(
+        &mut self,
+        block: &str,
+        dominators: &HashMap<String, HashSet<String>>,
+        stack: &mut HashMap<String, Vec<String>>,
+        counter: &mut HashMap<String, usize>,
+    ) {
+        let old_stack = stack.clone();
+        let cfg_entry = self.graph.get_mut(block).unwrap();
+        for instr in &mut cfg_entry.basic_block.0 {
+            // replace each argument to instr with stack[old name]
+            if let Some(args) = &mut instr.args {
+                if instr.op.as_deref() != Some("phi") {
+                    for arg in args {
+                        if let Some(stack) = stack.get(arg) {
+                            *arg = stack.last().unwrap().clone();
+                        }
+                    }
+                }
+            }
+
+            // replace instr's destination with a new name
+            if let Some(dest) = instr.dest.as_mut() {
+                let n = counter.entry(dest.clone()).or_default();
+                *n += 1;
+                let new_name = format!("{}.{}", dest, n);
+
+                stack
+                    .entry(dest.clone())
+                    .or_default()
+                    .push(new_name.clone());
+                *dest = new_name.clone();
+            }
+        }
+
+        let succs = cfg_entry.successors.clone();
+        for s in &succs {
+            for instr in &mut self.graph.get_mut(s.as_str()).unwrap().basic_block.0 {
+                if instr.op.as_deref() == Some("phi") {
+                    for i in 0..instr.args.as_ref().unwrap().len() {
+                        if instr.labels.as_ref().unwrap()[i] == block {
+                            let arg = &mut instr.args.as_mut().unwrap()[i];
+                            if let Some(stack) = stack.get(arg.as_str()) {
+                                *arg = stack.last().unwrap().clone();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for s in &succs {
+            if dominators[s.as_str()].contains(block) {
+                self._rename(s, dominators, stack, counter);
+            }
+        }
+
+        *stack = old_stack;
+    }
+
+    pub fn rename(&mut self) {
+        let entry = self.entry.clone();
+        self._rename(
+            &entry,
+            &self
+                .dominators()
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        k.to_string(),
+                        v.into_iter().map(|s| s.to_string()).collect(),
+                    )
+                })
+                .collect(),
+            &mut Default::default(),
+            &mut Default::default(),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -260,6 +335,52 @@ mod test {
             }
 
             let json_after = serde_json::to_string_pretty(&bril).unwrap();
+
+            let orig = brili(&json);
+            let after = brili(&json_after);
+
+            assert_eq!(orig.0, after.0);
+
+            assert_display_snapshot!(format!(
+                "{}\n\n{} -> {}\n\n{}",
+                txt,
+                orig.1,
+                after.1,
+                bril2txt(json_after.as_str())
+            ));
+        });
+    }
+
+    #[test]
+    fn test_rename() {
+        glob!("..", "tests/examples/ssa/loop-orig.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let mut bril: Bril = serde_json::from_str(&json).unwrap();
+
+            let mut output = txt.clone();
+            output.push_str("\n\n");
+
+            for function in &mut bril.functions {
+                let mut cfg = crate::ssa::Cfg::new(&function);
+                cfg.insert_phi();
+                cfg.rename();
+
+                // !!
+                let basic_blocks = BasicBlock::new_blocks(function.instrs.as_slice());
+
+                function.instrs = basic_blocks
+                    .into_iter()
+                    .flat_map(|block| {
+                        let label = block[0].label.clone().unwrap();
+                        cfg.graph[&label].basic_block.iter().cloned()
+                    })
+                    .collect::<Vec<_>>();
+            }
+
+            let json_after = serde_json::to_string_pretty(&bril).unwrap();
+
+            println!("{}", bril2txt(json_after.as_str()));
 
             let orig = brili(&json);
             let after = brili(&json_after);

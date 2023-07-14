@@ -1,0 +1,40 @@
+---
+source: mybril/src/ssa.rs
+expression: "format!(\"{}\\n\\n{} -> {}\\n\\n{}\", txt, orig.1, after.1,\n    bril2txt(json_after.as_str()))"
+input_file: mybril/tests/examples/ssa/loop-orig.bril
+---
+@main {
+.entry:
+    i: int = const 1;
+    jmp .loop;
+.loop:
+    max: int = const 10;
+    cond: bool = lt i max;
+    br cond .body .exit;
+.body:
+    i: int = add i i;
+    jmp .loop;
+.exit:
+    print i;
+}
+
+
+26 -> 32
+
+@main {
+.entry:
+  i.1: int = const 1;
+  jmp .loop;
+.loop:
+  i.2 = phi i.3 i.1 .body .entry;
+  max.1: int = const 10;
+  cond.1: bool = lt i.2 max.1;
+  br cond.1 .body .exit;
+.body:
+  i.3: int = add i.2 i.2;
+  jmp .loop;
+.exit:
+  print i.2;
+  ret;
+}
+

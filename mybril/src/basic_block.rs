@@ -8,7 +8,7 @@ use crate::Instruction;
 
 #[derive(Debug, Clone)]
 // An instructions chunk with a label at the beginning and a terminator at the end and no label or terminator in the middle.
-pub struct BasicBlock(Vec<Instruction>);
+pub struct BasicBlock(pub(crate) Vec<Instruction>);
 
 impl Into<Vec<Instruction>> for BasicBlock {
     fn into(self) -> Vec<Instruction> {
