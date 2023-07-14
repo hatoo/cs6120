@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    hash::Hash,
     iter::Successors,
 };
 
@@ -129,6 +130,24 @@ impl Cfg {
         }
 
         dominators
+    }
+
+    pub fn dominant_fronteers(&self) -> HashMap<&str, HashSet<&str>> {
+        let mut dominant_fronteers: HashMap<&str, HashSet<&str>> = HashMap::new();
+        let dominators = self.dominators();
+
+        for (&b, dom) in &dominators {
+            for &a in dom {
+                // a dominates b
+                for c in &self.graph[b].successors {
+                    if !dominators[c.as_str()].contains(b) {
+                        dominant_fronteers.entry(a).or_default().insert(c.as_str());
+                    }
+                }
+            }
+        }
+
+        dominant_fronteers
     }
 }
 
