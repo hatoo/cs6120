@@ -1,0 +1,28 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/test/interp/core/call-with-args.bril
+---
+@main {
+    x: int = const 2;
+    y: int = const 2;
+    z: int = call @add2 x y;
+    print y;
+    print z;
+}
+
+@add2(x: int, y: int): int {
+    w: int = add x y;
+    y: int = const 5;
+    print w;
+    ret w;
+}
+
+
+function main:
+  b0: b0 
+
+function add2:
+  b0: b0 
+
+

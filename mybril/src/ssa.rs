@@ -93,7 +93,7 @@ impl Cfg {
         order
     }
 
-    pub fn dominants(&self) -> HashMap<&str, HashSet<&str>> {
+    pub fn dominators(&self) -> HashMap<&str, HashSet<&str>> {
         let mut dominants = HashMap::new();
         let order = self.reverse_post_order();
 
@@ -129,5 +129,43 @@ impl Cfg {
         }
 
         dominants
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use insta::{assert_display_snapshot, glob};
+
+    use crate::{test::bril2json, Bril};
+
+    #[test]
+    fn test_dominators_dot() {
+        glob!("..", "tests/test/interp/core/*.bril", |path| {
+            let txt = std::fs::read_to_string(&path).unwrap();
+            let json = bril2json(&txt);
+            let bril: Bril = serde_json::from_str(&json).unwrap();
+
+            let mut output = txt.clone();
+            output.push_str("\n\n");
+
+            for function in bril.functions {
+                let cfg = crate::ssa::Cfg::new(&function);
+                let dominators = cfg.dominators();
+
+                output.push_str(&format!("function {}:\n", function.name));
+                for (label, dominators) in dominators.into_iter().collect::<BTreeMap<_, _>>() {
+                    output.push_str(&format!("  {}: ", label));
+                    for dominator in dominators.into_iter().collect::<BTreeSet<_>>() {
+                        output.push_str(&format!("{} ", dominator));
+                    }
+                    output.push_str("\n");
+                }
+                output.push_str("\n");
+            }
+
+            assert_display_snapshot!(output);
+        });
     }
 }

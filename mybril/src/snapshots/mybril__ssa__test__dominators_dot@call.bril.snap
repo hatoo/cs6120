@@ -1,0 +1,24 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/test/interp/core/call.bril
+---
+@main() {
+    v: int = const 2;
+    call @print4;
+    print v;
+}
+@print4 {
+    v: int = const 4;
+    print v;
+    ret;
+}
+
+
+function main:
+  b0: b0 
+
+function print4:
+  b0: b0 
+
+

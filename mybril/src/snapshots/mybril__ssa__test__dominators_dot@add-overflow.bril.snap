@@ -1,0 +1,46 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/test/interp/core/add-overflow.bril
+---
+@pow(base: int, exp: int): int {
+  out: int = const 1;
+  one: int = const 1;
+.loop:
+  end: bool = lt exp one;
+  br end .ret .body;
+.body:
+  out: int = mul out base;
+  exp: int = sub exp one;
+  jmp .loop;
+.ret:
+  ret out;
+}
+
+@main() {
+  one: int = const 1;
+  two: int = const 2;
+  sixtytwo: int = const 62;
+
+  half: int = call @pow two sixtytwo;
+  print half;
+
+  smaller: int = sub half one;
+  maxint: int = add half smaller;
+  print maxint;
+
+  overflow: int = add maxint one;
+  print overflow;
+}
+
+
+function pow:
+  b0: b0 
+  body: b0 body loop 
+  loop: b0 loop 
+  ret: b0 loop ret 
+
+function main:
+  b0: b0 
+
+

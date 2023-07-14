@@ -1,0 +1,17 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/test/interp/core/div.bril
+---
+@main {
+  v0: int = const 9;
+  v1: int = const -20;
+  res: int = div v0 v1;
+  print res;
+}
+
+
+function main:
+  b0: b0 
+
+

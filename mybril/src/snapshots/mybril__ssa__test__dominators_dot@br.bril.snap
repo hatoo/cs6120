@@ -1,0 +1,22 @@
+---
+source: mybril/src/ssa.rs
+expression: output
+input_file: mybril/tests/test/interp/core/br.bril
+---
+@main {
+  v: int = const 4;
+  b: bool = const false;
+  br b .there .here;
+.here:
+  v: int = const 2;
+.there:
+  print v;
+}
+
+
+function main:
+  b0: b0 
+  here: b0 here 
+  there: b0 there 
+
+
