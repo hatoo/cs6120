@@ -67,4 +67,29 @@ impl Cfg {
             graph,
         }
     }
+
+    pub fn reverse_post_order(&self) -> Vec<&str> {
+        let mut visited = HashSet::new();
+        let mut order = vec![];
+
+        fn rec<'a>(
+            label: &'a str,
+            visited: &mut HashSet<&'a str>,
+            order: &mut Vec<&'a str>,
+            graph: &'a HashMap<String, CfgEntry>,
+        ) {
+            if visited.contains(label) {
+                return;
+            }
+            visited.insert(label);
+            for next in &graph[label].successors {
+                rec(next, visited, order, graph);
+            }
+            order.push(label);
+        }
+
+        rec(&self.entry, &mut visited, &mut order, &self.graph);
+        order.reverse();
+        order
+    }
 }
