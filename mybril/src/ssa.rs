@@ -92,4 +92,42 @@ impl Cfg {
         order.reverse();
         order
     }
+
+    pub fn dominants(&self) -> HashMap<&str, HashSet<&str>> {
+        let mut dominants = HashMap::new();
+        let order = self.reverse_post_order();
+
+        for &label in &order {
+            dominants.insert(label, order.iter().copied().collect::<HashSet<_>>());
+        }
+
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for &label in &order {
+                let predecessors = &self.graph[label].predesessors;
+                let mut new_dominants = if predecessors.is_empty() {
+                    Default::default()
+                } else {
+                    let mut new_dominants = order.iter().copied().collect::<HashSet<_>>();
+                    for pred in &self.graph[label].predesessors {
+                        new_dominants = new_dominants
+                            .intersection(&dominants[pred.as_str()])
+                            .copied()
+                            .collect::<HashSet<_>>();
+                    }
+                    new_dominants
+                };
+                new_dominants.insert(label);
+                let entry = dominants.entry(label).or_default();
+
+                if new_dominants != *entry {
+                    changed = true;
+                    *entry = new_dominants;
+                }
+            }
+        }
+
+        dominants
+    }
 }
