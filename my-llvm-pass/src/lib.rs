@@ -1,7 +1,10 @@
 // See https://github.com/banach-space/llvm-tutor/blob/main/HelloWorld/HelloWorld.cpp
 // for a more detailed explanation.
 
-use llvm_plugin::inkwell::values::FunctionValue;
+use llvm_plugin::inkwell::context::Context;
+use llvm_plugin::inkwell::values::{
+    BasicValue, FunctionValue, InstructionOpcode, InstructionValue, IntValue,
+};
 use llvm_plugin::utils::InstructionIterator;
 use llvm_plugin::{
     FunctionAnalysisManager, LlvmFunctionPass, PassBuilder, PipelineParsing, PreservedAnalyses,
@@ -54,14 +57,29 @@ impl LlvmFunctionPass for HelloWorldPass {
         function: &mut FunctionValue,
         _manager: &FunctionAnalysisManager,
     ) -> PreservedAnalyses {
-        let name = function.get_name().to_string_lossy();
-        let instruction_count = function
-            .get_basic_blocks()
-            .iter()
-            .map(|bb| InstructionIterator::new(bb).count())
-            .sum::<usize>();
+        // Replace the first add with mul
+        for bb in &function.get_basic_blocks() {
+            for instr in InstructionIterator::new(bb) {
+                if instr.get_opcode() == InstructionOpcode::Add {
+                    let context = bb.get_context();
+                    let builder = context.create_builder();
 
-        eprintln!("function: {name}: {instruction_count} instructions");
+                    let lhs = instr.get_operand(0).unwrap();
+                    let rhs = instr.get_operand(1).unwrap();
+
+                    builder.position_before(&instr);
+                    let mul = builder.build_int_nsw_mul(
+                        lhs.expect_left("value").into_int_value(),
+                        rhs.expect_left("value").into_int_value(),
+                        "mul",
+                    );
+
+                    instr.replace_all_uses_with(mul.as_instruction().as_ref().unwrap());
+
+                    return PreservedAnalyses::None;
+                }
+            }
+        }
 
         PreservedAnalyses::All
     }
