@@ -60,7 +60,11 @@ mod test {
         }
     }
 
-    fn loop_invariant_code_motion(ctx: &mut Context) {}
+    fn loop_invariant_code_motion(ctx: &mut Context) {
+        ctx.flowgraph();
+        ctx.compute_loop_analysis();
+        dbg!(ctx.loop_analysis.is_valid());
+    }
 
     fn call_i32(func: &Function, v: i32) -> i32 {
         let mut function_store = FunctionStore::default();
@@ -122,8 +126,6 @@ mod test {
         "#;
 
         let functions = parse_functions(SRC).unwrap();
-
-        dbg!(call_i32(&functions[0], 4));
 
         let mut ctx = Context::for_function(functions[0].clone());
 
