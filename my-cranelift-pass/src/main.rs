@@ -112,7 +112,7 @@ mod test {
 
                 v6 = iadd v3, v4
 
-                v7 = isub v0, v5
+                v7 = isub v4, v5
                 v8 = icmp eq v7, v1
                 brif v8, block2(v6), block1(v6, v7)
             
