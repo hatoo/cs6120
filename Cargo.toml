@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "mybril",
-    "my-llvm-pass"
+    "my-llvm-pass",
+    "my-cranelift-pass"
 ]
