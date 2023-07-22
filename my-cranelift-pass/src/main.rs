@@ -8,10 +8,15 @@ mod test {
 
     use cranelift_codegen::{
         cursor::Cursor,
-        ir::{InstBuilderBase, InstInserterBase, InstructionData, Opcode},
+        data_value::DataValue,
+        ir::{Function, InstBuilderBase, InstInserterBase, InstructionData, Opcode, Value},
         isa::TargetIsa,
         settings::{self, Configurable},
         Context,
+    };
+    use cranelift_interpreter::{
+        environment::FunctionStore,
+        interpreter::{Interpreter, InterpreterState},
     };
     use cranelift_reader::parse_functions;
     use insta::assert_display_snapshot;
@@ -27,6 +32,7 @@ mod test {
             .unwrap()
     }
 
+    /// replace the first add to mul
     fn add_to_mul(ctx: &mut Context) {
         let mut cursor = cranelift_codegen::cursor::FuncCursor::new(&mut ctx.func);
 
@@ -54,8 +60,25 @@ mod test {
         }
     }
 
+    fn loop_invariant_code_motion(ctx: &mut Context) {}
+
+    fn call_i32(func: &Function, v: i32) -> i32 {
+        let mut function_store = FunctionStore::default();
+        function_store.add("f".to_string(), func);
+
+        let interpreter_state = InterpreterState::default().with_function_store(function_store);
+        let mut interpreter = Interpreter::new(interpreter_state);
+
+        let control_flow = interpreter.call_by_name("f", &[DataValue::I32(v)]).unwrap();
+
+        match control_flow {
+            cranelift_interpreter::step::ControlFlow::Return(d) => d[0].clone().try_into().unwrap(),
+            _ => panic!(),
+        }
+    }
+
     #[test]
-    fn test() {
+    fn test_add_to_mul() {
         const SRC: &str = r#"
         function %f(i32, i32) -> i32 {
 
@@ -72,5 +95,40 @@ mod test {
         add_to_mul(&mut ctx);
 
         assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
+    }
+
+    #[test]
+    fn test_loop_invariant_code_motion() {
+        const SRC: &str = r#"
+        function %f(i32) -> i32 {
+
+            block0(v0: i32):
+                v1 = iconst.i32 0
+                v2 = icmp eq v0, v1
+                brif v2, block2(v1), block1(v1, v0)
+            
+            block1(v3: i32, v4: i32):
+                v5 = iconst.i32 1
+
+                v6 = iadd v3, v4
+
+                v7 = isub v0, v5
+                v8 = icmp eq v7, v1
+                brif v8, block2(v6), block1(v6, v7)
+            
+            block2(v10: i32):
+                return v10
+        }
+        "#;
+
+        let functions = parse_functions(SRC).unwrap();
+
+        dbg!(call_i32(&functions[0], 4));
+
+        let mut ctx = Context::for_function(functions[0].clone());
+
+        loop_invariant_code_motion(&mut ctx);
+
+        // assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
     }
 }
