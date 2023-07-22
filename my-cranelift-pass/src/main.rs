@@ -103,6 +103,7 @@ mod test {
 
     #[test]
     fn test_loop_invariant_code_motion() {
+        // sum 0..=v0
         const SRC: &str = r#"
         function %f(i32) -> i32 {
 
