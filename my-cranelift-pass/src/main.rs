@@ -68,8 +68,14 @@ mod test {
             let header = ctx.loop_analysis.loop_header(lp);
             let pre_header = ctx.func.dfg.make_block();
 
+            let header_tys = ctx.func.dfg.block_param_types(header).collect::<Vec<_>>();
+            let header_args = header_tys
+                .into_iter()
+                .map(|ty| ctx.func.dfg.append_block_param(pre_header, ty))
+                .collect::<Vec<_>>();
+
             let mut cursor = FuncCursor::new(&mut ctx.func);
-            let block_call = cursor.func.dfg.block_call(header, &[]);
+            let block_call = cursor.func.dfg.block_call(header, &header_args);
 
             cursor.insert_block(pre_header);
             cursor.ins().build(
@@ -82,6 +88,9 @@ mod test {
 
             let dfg = &mut ctx.func.dfg;
             for pred in ctx.cfg.pred_iter(header) {
+                if ctx.loop_analysis.is_in_loop(pred.block, lp) {
+                    continue;
+                }
                 for dest in dfg.insts[pred.inst].branch_destination_mut(&mut dfg.jump_tables) {
                     if dest.block(&dfg.value_lists) == header {
                         dest.set_block(pre_header, &mut dfg.value_lists);
@@ -135,13 +144,13 @@ mod test {
             block0(v0: i32):
                 v1 = iconst.i32 0
                 v2 = icmp eq v0, v1
-                brif v2, block1, block2
+                brif v2, block1(v0), block2(v1)
             
-            block1:
-                jump block3 ; loop header
+            block1(v10: i32):
+                jump block3(v10) ; loop header
             
-            block2:
-                jump block3 ; loop header
+            block2(v11: i32):
+                jump block3(v11) ; loop header
 
             block3(v5: i32):
                 v6 = icmp eq v5, v1
@@ -159,6 +168,10 @@ mod test {
         let mut ctx = Context::for_function(functions[0].clone());
 
         loop_invariant_code_motion(&mut ctx);
+
+        ctx.compute_cfg();
+        ctx.compute_domtree();
+        ctx.verify(&*isa()).unwrap();
 
         assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
     }
