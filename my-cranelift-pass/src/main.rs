@@ -4,7 +4,7 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use std::{collections::HashSet, sync::Arc};
 
     use cranelift_codegen::{
         cursor::{Cursor, FuncCursor},
@@ -97,6 +97,50 @@ mod test {
                     }
                 }
             }
+
+            let mut loop_invariant = HashSet::new();
+            let mut modified = true;
+
+            while modified {
+                let mut cursor = FuncCursor::new(&mut ctx.func);
+                modified = false;
+                while let Some(block) = cursor.next_block() {
+                    if ctx.loop_analysis.is_in_loop(block, lp) {
+                        while let Some(inst) = cursor.next_inst() {
+                            let dfg = &cursor.func.dfg;
+                            if dfg
+                                .inst_args(inst)
+                                .iter()
+                                .all(|value| match dfg.value_def(*value) {
+                                    cranelift_codegen::ir::ValueDef::Result(inst, _) => {
+                                        loop_invariant.contains(&inst)
+                                            || cursor
+                                                .func
+                                                .layout
+                                                .inst_block(inst)
+                                                .map(|b| !ctx.loop_analysis.is_in_loop(b, lp))
+                                                .unwrap_or(false)
+                                    }
+                                    cranelift_codegen::ir::ValueDef::Param(b, _) => {
+                                        !ctx.loop_analysis.is_in_loop(b, lp)
+                                    }
+                                    cranelift_codegen::ir::ValueDef::Union(_, _) => todo!(),
+                                })
+                            {
+                                modified |= loop_invariant.insert(inst);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for inst in loop_invariant {
+                let mut cursor = FuncCursor::new(&mut ctx.func);
+                cursor = cursor.at_inst(inst);
+                cursor.remove_inst();
+                cursor = cursor.at_first_insertion_point(pre_header);
+                cursor.insert_inst(inst);
+            }
         }
     }
 
@@ -168,11 +212,10 @@ mod test {
         let mut ctx = Context::for_function(functions[0].clone());
 
         loop_invariant_code_motion(&mut ctx);
+        assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
 
         ctx.compute_cfg();
         ctx.compute_domtree();
         ctx.verify(&*isa()).unwrap();
-
-        assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
     }
 }
