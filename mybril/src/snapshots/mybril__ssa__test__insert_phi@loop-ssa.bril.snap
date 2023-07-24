@@ -27,8 +27,8 @@ input_file: mybril/tests/examples/ssa/loop-ssa.bril
   i.1: int = const 1;
   jmp .loop;
 .loop:
-  i.3 = phi i.3 .body;
   i.1 = phi i.1 .entry;
+  i.3 = phi i.3 .body;
   i.2: int = phi i.1 i.3 .entry .body;
   max: int = const 10;
   cond: bool = lt i.2 max;

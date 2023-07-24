@@ -31,7 +31,7 @@ input_file: mybril/tests/examples/ssa/if-orig.bril
   a: int = mul a a;
   jmp .exit;
 .exit:
-  a = phi a a a .entry .right .left;
+  a = phi a a a .right .left .entry;
   print a;
   ret;
 }

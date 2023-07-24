@@ -17,6 +17,7 @@ block2(v11: i32):
 block3(v5: i32):
     v6 = icmp eq v5, v1  ; v1 = 0
     v7 = iconst.i32 1
+    v20 = iadd v7, v0  ; v7 = 1
     v8 = isub v5, v7  ; v7 = 1
     brif v6, block3(v7), block4  ; v7 = 1
 
@@ -38,14 +39,15 @@ block2(v11: i32):
 
 block3(v5: i32):
     v6 = icmp eq v5, v1  ; v1 = 0
-    v7 = iconst.i32 1
     v8 = isub v5, v7  ; v7 = 1
     brif v6, block3(v7), block4  ; v7 = 1
 
 block4:
     return v8
 
-block5(v12: i32):
-    jump block3(v12)
+block5(v21: i32):
+    v7 = iconst.i32 1
+    v20 = iadd v7, v0  ; v7 = 1
+    jump block3(v21)
 }
 

@@ -32,8 +32,8 @@ input_file: mybril/tests/examples/ssa/if-ssa.bril
   a.3: int = mul a.1 a.1;
   jmp .exit;
 .exit:
-  a.2 = phi a.2 .left;
   a.3 = phi a.3 .right;
+  a.2 = phi a.2 .left;
   a.1 = phi a.1 .entry;
   a.4: int = phi a.2 a.3 .left .right;
   print a.4;

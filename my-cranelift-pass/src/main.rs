@@ -4,12 +4,18 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashSet, sync::Arc};
+    use std::{
+        collections::{BTreeSet, HashMap, HashSet},
+        sync::Arc,
+    };
 
     use cranelift_codegen::{
         cursor::{Cursor, FuncCursor},
         data_value::DataValue,
-        ir::{Function, InstBuilderBase, InstInserterBase, InstructionData, Opcode, Type, Value},
+        ir::{
+            DataFlowGraph, Function, Inst, InstBuilderBase, InstInserterBase, InstructionData,
+            Opcode, Type, Value,
+        },
         isa::TargetIsa,
         settings::{self, Configurable},
         Context,
@@ -134,14 +140,64 @@ mod test {
                 }
             }
 
-            for inst in loop_invariant {
+            for inst in topological_sort(loop_invariant, &ctx.func.dfg) {
+                dbg!(inst);
                 let mut cursor = FuncCursor::new(&mut ctx.func);
                 cursor = cursor.at_inst(inst);
                 cursor.remove_inst();
-                cursor = cursor.at_first_insertion_point(pre_header);
+                cursor = cursor.at_last_inst(pre_header);
                 cursor.insert_inst(inst);
             }
         }
+    }
+
+    fn topological_sort(insts: HashSet<Inst>, dfg: &DataFlowGraph) -> Vec<Inst> {
+        let mut in_edge: HashMap<Inst, HashSet<Inst>> = HashMap::new();
+        let mut out_edge: HashMap<Inst, HashSet<Inst>> = HashMap::new();
+
+        for &inst in insts.iter() {
+            let in_edge = in_edge.entry(inst).or_default();
+            for value in dfg.inst_args(inst) {
+                match dfg.value_def(*value) {
+                    cranelift_codegen::ir::ValueDef::Result(arg, _) => {
+                        if insts.contains(&arg) {
+                            let out_edge = out_edge.entry(arg).or_default();
+                            in_edge.insert(arg);
+                            out_edge.insert(inst);
+                        }
+                    }
+                    cranelift_codegen::ir::ValueDef::Param(_, _) => {}
+                    cranelift_codegen::ir::ValueDef::Union(_, _) => todo!(),
+                }
+            }
+        }
+
+        let mut stack = Vec::new();
+        let mut sorted = Vec::new();
+
+        for (&inst, inward) in &in_edge {
+            if inward.is_empty() {
+                stack.push(inst);
+            }
+        }
+
+        dbg!(&in_edge);
+        dbg!(&out_edge);
+
+        while let Some(inst) = stack.pop() {
+            sorted.push(inst);
+
+            for outward in out_edge.get(&inst).unwrap_or(&Default::default()) {
+                let in_edge = in_edge.get_mut(outward).unwrap();
+                in_edge.remove(&inst);
+                if in_edge.is_empty() {
+                    stack.push(*outward);
+                }
+            }
+        }
+
+        dbg!(&sorted);
+        sorted
     }
 
     fn call_i32(func: &Function, v: i32) -> i32 {
@@ -199,6 +255,7 @@ mod test {
             block3(v5: i32):
                 v6 = icmp eq v5, v1
                 v7 = iconst.i32 1
+                v20 = iadd v7, v0
                 v8 = isub v5, v7
                 brif v6, block3(v7), block4
 
@@ -212,10 +269,12 @@ mod test {
         let mut ctx = Context::for_function(functions[0].clone());
 
         loop_invariant_code_motion(&mut ctx);
-        assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
+
+        dbg!(&ctx.func);
 
         ctx.compute_cfg();
         ctx.compute_domtree();
         ctx.verify(&*isa()).unwrap();
+        assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
     }
 }

@@ -26,7 +26,7 @@ input_file: mybril/tests/examples/ssa/loop-orig.bril
   i: int = const 1;
   jmp .loop;
 .loop:
-  i = phi i i .entry .body;
+  i = phi i i .body .entry;
   max: int = const 10;
   cond: bool = lt i max;
   br cond .body .exit;
