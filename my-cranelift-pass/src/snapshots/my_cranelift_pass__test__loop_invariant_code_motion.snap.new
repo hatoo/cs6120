@@ -1,0 +1,52 @@
+---
+source: my-cranelift-pass/src/main.rs
+assertion_line: 163
+expression: "format!(\"{:?}\\n{:?}\", & functions [0], & ctx.func)"
+---
+function %f(i32) -> i32 fast {
+block0(v0: i32):
+    v1 = iconst.i32 0
+    v2 = icmp eq v0, v1  ; v1 = 0
+    brif v2, block1, block2
+
+block1:
+    jump block3
+
+block2:
+    jump block3
+
+block3(v5: i32):
+    v6 = icmp eq v5, v1  ; v1 = 0
+    v7 = iconst.i32 1
+    v8 = isub v5, v7  ; v7 = 1
+    brif v6, block3(v7), block4  ; v7 = 1
+
+block4:
+    return v8
+}
+
+function %f(i32) -> i32 fast {
+block0(v0: i32):
+    v1 = iconst.i32 0
+    v2 = icmp eq v0, v1  ; v1 = 0
+    brif v2, block1, block2
+
+block1:
+    jump block5
+
+block2:
+    jump block5
+
+block3(v5: i32):
+    v6 = icmp eq v5, v1  ; v1 = 0
+    v7 = iconst.i32 1
+    v8 = isub v5, v7  ; v7 = 1
+    brif v6, block5(v7), block4  ; v7 = 1
+
+block4:
+    return v8
+
+block5:
+    jump block3
+}
+

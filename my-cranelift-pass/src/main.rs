@@ -7,9 +7,9 @@ mod test {
     use std::sync::Arc;
 
     use cranelift_codegen::{
-        cursor::Cursor,
+        cursor::{Cursor, FuncCursor},
         data_value::DataValue,
-        ir::{Function, InstBuilderBase, InstInserterBase, InstructionData, Opcode, Value},
+        ir::{Function, InstBuilderBase, InstInserterBase, InstructionData, Opcode, Type, Value},
         isa::TargetIsa,
         settings::{self, Configurable},
         Context,
@@ -63,7 +63,32 @@ mod test {
     fn loop_invariant_code_motion(ctx: &mut Context) {
         ctx.flowgraph();
         ctx.compute_loop_analysis();
-        dbg!(ctx.loop_analysis.is_valid());
+
+        for lp in ctx.loop_analysis.loops() {
+            let header = ctx.loop_analysis.loop_header(lp);
+            let pre_header = ctx.func.dfg.make_block();
+
+            let mut cursor = FuncCursor::new(&mut ctx.func);
+            let block_call = cursor.func.dfg.block_call(header, &[]);
+
+            cursor.insert_block(pre_header);
+            cursor.ins().build(
+                InstructionData::Jump {
+                    opcode: Opcode::Jump,
+                    destination: block_call,
+                },
+                cranelift_codegen::ir::types::INVALID,
+            );
+
+            let dfg = &mut ctx.func.dfg;
+            for pred in ctx.cfg.pred_iter(header) {
+                for dest in dfg.insts[pred.inst].branch_destination_mut(&mut dfg.jump_tables) {
+                    if dest.block(&dfg.value_lists) == header {
+                        dest.set_block(pre_header, &mut dfg.value_lists);
+                    }
+                }
+            }
+        }
     }
 
     fn call_i32(func: &Function, v: i32) -> i32 {
@@ -103,26 +128,29 @@ mod test {
 
     #[test]
     fn test_loop_invariant_code_motion() {
-        // sum 0..=v0
+        // Add pre-header
         const SRC: &str = r#"
         function %f(i32) -> i32 {
 
             block0(v0: i32):
                 v1 = iconst.i32 0
                 v2 = icmp eq v0, v1
-                brif v2, block2(v1), block1(v1, v0)
+                brif v2, block1, block2
             
-            block1(v3: i32, v4: i32):
-                v5 = iconst.i32 1
-
-                v6 = iadd v3, v4
-
-                v7 = isub v4, v5
-                v8 = icmp eq v7, v1
-                brif v8, block2(v6), block1(v6, v7)
+            block1:
+                jump block3 ; loop header
             
-            block2(v10: i32):
-                return v10
+            block2:
+                jump block3 ; loop header
+
+            block3(v5: i32):
+                v6 = icmp eq v5, v1
+                v7 = iconst.i32 1
+                v8 = isub v5, v7
+                brif v6, block3(v7), block4
+
+            block4:
+                return v8
         }
         "#;
 
@@ -132,6 +160,6 @@ mod test {
 
         loop_invariant_code_motion(&mut ctx);
 
-        // assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
+        assert_display_snapshot!(format!("{:?}\n{:?}", &functions[0], &ctx.func));
     }
 }
