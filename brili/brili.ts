@@ -439,6 +439,24 @@ function evalCall(instr: bril.Operation, state: State): Action {
   return NEXT;
 }
 
+function traceInstr(instr: bril.Instruction, state: State): void {
+  if (instr.op === "jmp") {
+    return;
+  }
+
+  if (instr.op === "br") {
+    state.trace.push({
+      "op": "guard",
+      args: instr.args,
+      labels: [".abort"],
+    });
+
+    return;
+  }
+
+  state.trace.push(instr);
+}
+
 /**
  * Interpret an instruction in a given environment, possibly updating the
  * environment. If the instruction branches to a new label, return that label;
@@ -446,7 +464,7 @@ function evalCall(instr: bril.Operation, state: State): Action {
  * instruction or "end" to terminate the function.
  */
 function evalInstr(instr: bril.Instruction, state: State): Action {
-  state.trace.push(instr);
+  traceInstr(instr, state);
   state.icount += BigInt(1);
 
   // Check that we have the right number of arguments.
@@ -821,6 +839,7 @@ function evalInstr(instr: bril.Instruction, state: State): Action {
 }
 
 function evalFunc(func: bril.Function, state: State): Value | null {
+  state.trace = [{ op: "speculate" }];
   for (let i = 0; i < func.instrs.length; ++i) {
     let line = func.instrs[i];
     if ("op" in line) {
@@ -894,6 +913,9 @@ function evalFunc(func: bril.Function, state: State): Value | null {
   if (state.specparent) {
     throw error(`implicit return in speculative state`);
   }
+  state.trace.push({
+    op: "commit",
+  });
   return null;
 }
 
