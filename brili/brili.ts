@@ -160,6 +160,22 @@ type Pointer = {
 type Value = boolean | BigInt | Pointer | number | string;
 type Env = Map<bril.Ident, Value>;
 
+function valueType(value: Value) : bril.Type {
+  switch (typeof value) {
+    case "boolean":
+      return "bool";
+    case "bigint":
+      return "int";
+    case "number":
+      return "float";
+    case "string":
+      return "char";
+    default:
+      // I dont's care
+      return "int";
+  }
+}
+
 /**
  * Check whether a run-time value matches the given static type.
  */
@@ -839,7 +855,11 @@ function evalInstr(instr: bril.Instruction, state: State): Action {
 }
 
 function evalFunc(func: bril.Function, state: State): Value | null {
-  state.trace = [{ op: "speculate" }];
+  const args: bril.Argument[] = [];
+  state.env.forEach(( value, ident) => {
+    args.push({name: ident, type: valueType(value)});
+  });
+  // state.trace = [{ op: "speculate" }];
   for (let i = 0; i < func.instrs.length; ++i) {
     let line = func.instrs[i];
     if ("op" in line) {
@@ -913,9 +933,18 @@ function evalFunc(func: bril.Function, state: State): Value | null {
   if (state.specparent) {
     throw error(`implicit return in speculative state`);
   }
+  /*
   state.trace.push({
     op: "commit",
   });
+  */
+
+  console.error(JSON.stringify({
+    functions: [
+      {args, instrs: state.trace, name: "main"},
+    ]
+  }, null, 2));
+
   return null;
 }
 
@@ -1012,8 +1041,6 @@ function evalProg(prog: bril.Program) {
     trace: [],
   };
   evalFunc(main, state);
-
-  console.log(state.trace);
 
   if (!heap.isEmpty()) {
     throw error(
