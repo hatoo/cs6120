@@ -343,6 +343,9 @@ type State = {
 
   // For speculation: the state at the point where speculation began.
   specparent: State | null;
+
+  // For tracing: the trace of instructions executed.
+  trace: bril.Instruction[];
 };
 
 /**
@@ -389,6 +392,7 @@ function evalCall(instr: bril.Operation, state: State): Action {
     lastlabel: null,
     curlabel: null,
     specparent: null, // Speculation not allowed.
+    trace: [],
   };
   let retVal = evalFunc(func, newState);
   state.icount = newState.icount;
@@ -442,6 +446,7 @@ function evalCall(instr: bril.Operation, state: State): Action {
  * instruction or "end" to terminate the function.
  */
 function evalInstr(instr: bril.Instruction, state: State): Action {
+  state.trace.push(instr);
   state.icount += BigInt(1);
 
   // Check that we have the right number of arguments.
@@ -982,8 +987,11 @@ function evalProg(prog: bril.Program) {
     lastlabel: null,
     curlabel: null,
     specparent: null,
+    trace: [],
   };
   evalFunc(main, state);
+
+  console.log(state.trace);
 
   if (!heap.isEmpty()) {
     throw error(
